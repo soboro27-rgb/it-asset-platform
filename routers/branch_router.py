@@ -144,7 +144,9 @@ async def create_application(request: Request, db: Session = Depends(get_db)):
 
         cond = conditions[i] if i < len(conditions) else "중"
         mname = model_names[i] if i < len(model_names) else ""
-        est_unit = estimate_unit_price(cat, mname, year, cond, db=db)
+        mem = memory_specs[i] if i < len(memory_specs) else ""
+        stg = storage_specs[i] if i < len(storage_specs) else ""
+        est_unit = estimate_unit_price(cat, mname, year, cond, memory_spec=mem, storage_spec=stg, db=db)
 
         item = models.AssetItem(
             application_id=app.id,
@@ -466,7 +468,8 @@ async def parse_asset_excel(request: Request, file: UploadFile = File(...), db: 
         data_wiped = data_wiped_raw if data_wiped_raw in VALID_DATA_WIPED else ""
         has_adapter = has_adapter_raw if has_adapter_raw in VALID_ADAPTER else ""
 
-        est_unit = estimate_unit_price(category, model_name, manufacture_year, condition, db=db)
+        est_unit = estimate_unit_price(category, model_name, manufacture_year, condition,
+                                       memory_spec=memory_spec, storage_spec=storage_spec, db=db)
         items.append({
             "category": category,
             "model_name": model_name,

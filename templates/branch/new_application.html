@@ -184,11 +184,11 @@ function buildExtraRowHtml(idx) {
       <div class="d-flex gap-2 flex-wrap align-items-end">
         <div>
           <div class="text-muted mb-1" style="font-size:11px">메모리 사양</div>
-          <input type="text" name="memory_spec[]" class="form-control form-control-sm" placeholder="예: 16GB DDR4" style="width:130px;font-size:12px"/>
+          <input type="text" name="memory_spec[]" class="form-control form-control-sm" placeholder="예: 16GB DDR4" style="width:130px;font-size:12px" oninput="scheduleEstimate()"/>
         </div>
         <div>
           <div class="text-muted mb-1" style="font-size:11px">저장장치 사양</div>
-          <input type="text" name="storage_spec[]" class="form-control form-control-sm" placeholder="예: 512GB SSD" style="width:130px;font-size:12px"/>
+          <input type="text" name="storage_spec[]" class="form-control form-control-sm" placeholder="예: 512GB SSD" style="width:130px;font-size:12px" oninput="scheduleEstimate()"/>
         </div>
         <div>
           <div class="text-muted mb-1" style="font-size:11px"><i class="bi bi-shield-check me-1"></i>데이터 삭제</div>
@@ -310,7 +310,10 @@ function collectItems() {
     const year = row.querySelector('input[name="manufacture_year[]"]')?.value || null;
     const qty = parseInt(row.querySelector('input[name="quantity[]"]')?.value) || 1;
     const cond = row.querySelector('select[name="condition[]"]')?.value || '중';
-    items.push({ idx: parseInt(idx), category: cat, model_name: model, manufacture_year: year ? parseInt(year) : null, quantity: qty, condition: cond });
+    const extraRow = document.getElementById(`extra_${idx}`);
+    const memSpec = extraRow?.querySelector('input[name="memory_spec[]"]')?.value || '';
+    const stgSpec = extraRow?.querySelector('input[name="storage_spec[]"]')?.value || '';
+    items.push({ idx: parseInt(idx), category: cat, model_name: model, manufacture_year: year || null, quantity: qty, condition: cond, memory_spec: memSpec, storage_spec: stgSpec });
   });
   return items;
 }
