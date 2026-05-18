@@ -12,6 +12,7 @@ import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 from io import BytesIO
+from pricing import estimate_unit_price, estimate_items
 
 
 def _make_thin_border():
@@ -96,6 +97,7 @@ async def create_application(request: Request, db: Session = Depends(get_db)):
     data_wipeds = form.getlist("data_wiped[]")
     has_adapters = form.getlist("has_adapter[]")
 
+    total_estimated = 0.0
     for i, cat in enumerate(categories):
         if not cat:
             continue
@@ -108,21 +110,29 @@ async def create_application(request: Request, db: Session = Depends(get_db)):
         except ValueError:
             qty = 1
 
+        cond = conditions[i] if i < len(conditions) else "중"
+        mname = model_names[i] if i < len(model_names) else ""
+        est_unit = estimate_unit_price(cat, mname, year, cond, db=db)
+
         item = models.AssetItem(
             application_id=app.id,
             category=cat,
-            model_name=model_names[i] if i < len(model_names) else "",
+            model_name=mname,
             manufacturer=manufacturers[i] if i < len(manufacturers) else "",
             manufacture_year=year,
             quantity=qty,
-            condition=conditions[i] if i < len(conditions) else "중",
+            condition=cond,
             description=descriptions[i] if i < len(descriptions) else "",
             memory_spec=memory_specs[i] if i < len(memory_specs) else "",
             storage_spec=storage_specs[i] if i < len(storage_specs) else "",
             data_wiped=data_wipeds[i] if i < len(data_wipeds) else "",
             has_adapter=has_adapters[i] if i < len(has_adapters) else "",
+            estimated_unit_price=float(est_unit),
         )
         db.add(item)
+        total_estimated += est_unit * qty
+
+    app.estimated_price = total_estimated
 
     action = form.get("action", "draft")
     if action == "submit" and categories:
@@ -345,8 +355,25 @@ def download_asset_template(request: Request):
     )
 
 
+@router.post("/assets/estimate")
+async def estimate_asset_prices(request: Request, db: Session = Depends(get_db)):
+    """실시간 가견적 산출 API"""
+    user, redir = _check(request)
+    if redir:
+        return JSONResponse({"error": "로그인이 필요합니다."}, status_code=401)
+
+    try:
+        data = await request.json()
+    except Exception:
+        return JSONResponse({"error": "잘못된 요청입니다."}, status_code=400)
+
+    items = data.get("items", [])
+    result = estimate_items(items, db=db)
+    return JSONResponse(result)
+
+
 @router.post("/assets/parse-excel")
-async def parse_asset_excel(request: Request, file: UploadFile = File(...)):
+async def parse_asset_excel(request: Request, file: UploadFile = File(...), db: Session = Depends(get_db)):
     user, redir = _check(request)
     if redir:
         return JSONResponse({"error": "로그인이 필요합니다."}, status_code=401)
@@ -412,6 +439,7 @@ async def parse_asset_excel(request: Request, file: UploadFile = File(...)):
         data_wiped = data_wiped_raw if data_wiped_raw in VALID_DATA_WIPED else ""
         has_adapter = has_adapter_raw if has_adapter_raw in VALID_ADAPTER else ""
 
+        est_unit = estimate_unit_price(category, model_name, manufacture_year, condition, db=db)
         items.append({
             "category": category,
             "model_name": model_name,
@@ -424,6 +452,7 @@ async def parse_asset_excel(request: Request, file: UploadFile = File(...)):
             "storage_spec": storage_spec,
             "data_wiped": data_wiped,
             "has_adapter": has_adapter,
+            "estimated_unit_price": est_unit,
         })
 
     return JSONResponse({"items": items, "errors": errors})

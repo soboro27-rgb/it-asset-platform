@@ -29,6 +29,7 @@ class Application(Base):
     # → collected → priced → branch_confirmed → completed
     title = Column(String(200), default="")
     notes = Column(Text, default="")
+    estimated_price = Column(Float, default=0.0)   # 가견적 합계
     submitted_at = Column(DateTime, nullable=True)
     approved_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.now)
@@ -53,7 +54,8 @@ class AssetItem(Base):
     quantity = Column(Integer, default=1)
     condition = Column(String(10), default="중")  # 상/중/하
     description = Column(Text, default="")
-    unit_price = Column(Float, default=0.0)  # 수거 후 코어테일이 입력
+    unit_price = Column(Float, default=0.0)           # 수거 후 코어테일이 입력
+    estimated_unit_price = Column(Float, default=0.0)  # 가견적 단가
     memory_spec = Column(String(100), default="")    # 메모리 사양 (PC/노트북)
     storage_spec = Column(String(100), default="")   # 저장장치 사양 (PC/노트북)
     data_wiped = Column(String(20), default="")      # 데이터 삭제 여부: 파쇄/블랑코/""
@@ -138,6 +140,18 @@ class BlanccoItemRecord(Base):
 
     data_wipe_record = relationship("DataWipeRecord", back_populates="item_records")
     asset_item = relationship("AssetItem")
+
+
+class AssetPriceRef(Base):
+    """모델명 기반 가견적 기준가 참조 테이블"""
+    __tablename__ = "asset_price_refs"
+
+    id = Column(Integer, primary_key=True)
+    category = Column(String(20), nullable=False, index=True)
+    model_display = Column(String(200), default="")
+    keywords = Column(String(500), default="")   # 쉼표 구분 검색 키워드
+    base_price = Column(Integer, default=0)      # 가견적 기준 단가 (원)
+    updated_at = Column(DateTime, default=datetime.now)
 
 
 class SystemConfig(Base):

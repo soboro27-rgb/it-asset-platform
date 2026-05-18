@@ -102,5 +102,58 @@ def init():
     print("=" * 50)
 
 
+def seed_price_refs():
+    """ITAD 시스템 기준 주요 모델 가견적 기준가 초기 데이터 (없을 때만 삽입)"""
+    db = SessionLocal()
+    if db.query(models.AssetPriceRef).count() > 0:
+        db.close()
+        return
+
+    # 기준가 = 신품 소매가 × 20% (B2B 중고 매입 기준, 연식 계수는 별도 적용)
+    price_refs = [
+        # ── 노트북 ────────────────────────────────────────────
+        ("노트북", "LG 그램 14/16", "lg,그램,gram,14z90,16z90,15z95,17z90", 300_000),
+        ("노트북", "삼성 갤럭시북", "samsung,삼성,galaxy book,갤럭시북,nt950,nt960,nt760,nt550", 280_000),
+        ("노트북", "HP EliteBook 840/850", "hp,elitebook,840,850", 320_000),
+        ("노트북", "HP ProBook", "hp,probook,450,430", 220_000),
+        ("노트북", "Dell Latitude 5000", "dell,latitude,5430,5440,5530,5540,5340", 280_000),
+        ("노트북", "Dell Latitude 7000", "dell,latitude,7430,7440,7530,7540", 380_000),
+        ("노트북", "Lenovo ThinkPad X1 Carbon", "lenovo,thinkpad,x1 carbon,x1c", 420_000),
+        ("노트북", "Lenovo ThinkPad T/E 시리즈", "lenovo,thinkpad,t14,t15,e15,e14", 250_000),
+        ("노트북", "Apple MacBook Air M1/M2", "apple,macbook,air,m1,m2", 500_000),
+        ("노트북", "Apple MacBook Pro", "apple,macbook,pro", 650_000),
+        ("노트북", "Microsoft Surface Pro", "microsoft,surface,pro", 280_000),
+        ("노트북", "HP ZBook", "hp,zbook,firefly", 480_000),
+        # ── PC (데스크탑) ─────────────────────────────────────
+        ("PC", "HP ProDesk 400", "hp,prodesk,400", 170_000),
+        ("PC", "HP ProDesk 600/EliteDesk 800", "hp,prodesk,600,elitedesk,800", 240_000),
+        ("PC", "Dell OptiPlex 3000", "dell,optiplex,3090,3080,3000,3010", 160_000),
+        ("PC", "Dell OptiPlex 5000/7000", "dell,optiplex,5090,5080,7090,7080,7010", 240_000),
+        ("PC", "Lenovo ThinkCentre M70", "lenovo,thinkcentre,m70,m720", 160_000),
+        ("PC", "Lenovo ThinkCentre M80/M90", "lenovo,thinkcentre,m80,m90,m720t", 240_000),
+        ("PC", "삼성 DM 시리즈", "samsung,삼성,dm500,dm400,db400", 160_000),
+        # ── 프린터 ───────────────────────────────────────────
+        ("프린터", "HP LaserJet Pro", "hp,laserjet,pro,m404,m403", 40_000),
+        ("프린터", "HP LaserJet Enterprise", "hp,laserjet,enterprise,m507,m506", 70_000),
+        ("프린터", "Brother 레이저", "brother,hl-l,dcp-l", 35_000),
+        # ── 복합기 ───────────────────────────────────────────
+        ("복합기", "HP LaserJet MFP", "hp,laserjet,mfp,m428,m429,m430", 70_000),
+        ("복합기", "신도리코/캐논/제록스", "신도리코,canon,xerox,ricoh", 80_000),
+    ]
+
+    for cat, display, keywords, price in price_refs:
+        db.add(models.AssetPriceRef(
+            category=cat,
+            model_display=display,
+            keywords=keywords,
+            base_price=price,
+        ))
+
+    db.commit()
+    db.close()
+    print("  [seed] AssetPriceRef 기준가 데이터 초기화 완료")
+
+
 if __name__ == "__main__":
     init()
+    seed_price_refs()

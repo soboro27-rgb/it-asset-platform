@@ -83,6 +83,19 @@ try:
 except Exception as _e:
     print(f"Migration warning (wipe tables): {_e}")
 
+# Migration: add estimated_price columns (asset_price_refs is created by create_all)
+try:
+    _app_cols = [c['name'] for c in _sa_inspect(engine).get_columns('applications')]
+    _item_cols = [c['name'] for c in _sa_inspect(engine).get_columns('asset_items')]
+    with engine.connect() as _c:
+        if 'estimated_price' not in _app_cols:
+            _c.execute(text("ALTER TABLE applications ADD COLUMN estimated_price FLOAT DEFAULT 0.0"))
+        if 'estimated_unit_price' not in _item_cols:
+            _c.execute(text("ALTER TABLE asset_items ADD COLUMN estimated_unit_price FLOAT DEFAULT 0.0"))
+        _c.commit()
+except Exception as _e:
+    print(f"Migration warning (estimated_price): {_e}")
+
 app = FastAPI(title="IT 매각자산 플랫폼")
 app.add_middleware(SessionMiddleware, secret_key=os.getenv("SECRET_KEY", "mgit-saemaul-2024-secret"))
 
