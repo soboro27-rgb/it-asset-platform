@@ -2,6 +2,7 @@ services:
   - type: web
     name: it-asset-platform
     env: python
+    plan: free
     buildCommand: pip install -r requirements.txt
     startCommand: python init_data.py && uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
@@ -16,3 +17,4 @@ databases:
   - name: itasset-db
     databaseName: itasset
     user: itasset_user
+    plan: free
