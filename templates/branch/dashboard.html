@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title %}대시보드 - 지점 담당자{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+  <div>
+    <h4><i class="bi bi-grid-1x2-fill me-2" style="color:var(--mg)"></i>내 신청 현황</h4>
+    <nav aria-label="breadcrumb">
+      <ol class="breadcrumb mb-0">
+        <li class="breadcrumb-item text-muted">{{ session.get('branch_name') }}</li>
+        <li class="breadcrumb-item active">대시보드</li>
+      </ol>
+    </nav>
+  </div>
+  <a href="/branch/applications/new" class="btn btn-mg">
+    <i class="bi bi-plus-circle me-1"></i>자산 신청서 작성
+  </a>
+</div>
+
+<!-- 현황 카드 -->
+{% set total = applications|length %}
+{% set draft_cnt = applications|selectattr('status','eq','draft')|list|length %}
+{% set in_progress = applications|selectattr('status','in',['submitted','approved','scheduled','schedule_confirmed','collected','priced'])|list|length %}
+{% set done = applications|selectattr('status','in',['branch_confirmed','completed'])|list|length %}
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="stat-card">
+      <div class="stat-num" style="color:#005B30">{{ total }}</div>
+      <div class="stat-lbl"><i class="bi bi-folder2 me-1"></i>전체 신청</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card">
+      <div class="stat-num" style="color:#aaa">{{ draft_cnt }}</div>
+      <div class="stat-lbl"><i class="bi bi-pencil me-1"></i>작성중</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card">
+      <div class="stat-num" style="color:#1976d2">{{ in_progress }}</div>
+      <div class="stat-lbl"><i class="bi bi-arrow-repeat me-1"></i>진행중</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card">
+      <div class="stat-num" style="color:#2e7d32">{{ done }}</div>
+      <div class="stat-lbl"><i class="bi bi-check-circle me-1"></i>완료</div>
+    </div>
+  </div>
+</div>
+
+<!-- 신청 목록 -->
+<div class="card">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span><i class="bi bi-list-ul me-2"></i>신청 목록</span>
+    <span class="text-muted" style="font-size:12px;font-weight:400">총 {{ total }}건</span>
+  </div>
+  <div class="card-body p-0">
+    {% if applications %}
+    <table class="table table-hover mb-0">
+      <thead class="table-light">
+        <tr>
+          <th class="ps-3">신청번호</th>
+          <th>제목</th>
+          <th>자산 수</th>
+          <th>상태</th>
+          <th>신청일</th>
+          <th>최종 업데이트</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for app in applications %}
+        <tr>
+          <td class="ps-3 text-muted" style="font-size:12px">#{{ app.id }}</td>
+          <td>
+            <a href="/branch/applications/{{ app.id }}" style="color:#1a2e4a;font-weight:500;text-decoration:none">
+              {{ app.title if app.title else '신청서 #' ~ app.id }}
+            </a>
+            <div style="font-size:11px;color:#aaa">자산 {{ app.assets|length }}종</div>
+          </td>
+          <td>
+            {% set total_qty = namespace(v=0) %}
+            {% for a in app.assets %}{% set total_qty.v = total_qty.v + a.quantity %}{% endfor %}
+            {{ total_qty.v }}개
+          </td>
+          <td>
+            <span class="s-badge bg-{{ STATUS_COLOR[app.status] }} {% if app.status in ['submitted','priced'] %}text-dark{% endif %}">
+              {{ STATUS_LABEL[app.status] }}
+            </span>
+            {% if app.status == 'scheduled' %}
+            <div class="mt-1"><span class="badge bg-danger" style="font-size:10px">일정 확인 필요</span></div>
+            {% elif app.status == 'priced' %}
+            <div class="mt-1"><span class="badge bg-danger" style="font-size:10px">금액 승인 필요</span></div>
+            {% endif %}
+          </td>
+          <td style="font-size:12px">{{ app.submitted_at.strftime('%Y-%m-%d') if app.submitted_at else '-' }}</td>
+          <td style="font-size:12px;color:#aaa">{{ app.updated_at.strftime('%Y-%m-%d') if app.updated_at else '-' }}</td>
+          <td>
+            <a href="/branch/applications/{{ app.id }}" class="btn btn-sm btn-outline-secondary">상세</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="text-center py-5 text-muted">
+      <i class="bi bi-inbox" style="font-size:40px;display:block;margin-bottom:10px;opacity:.3"></i>
+      아직 신청 내역이 없습니다.<br/>
+      <a href="/branch/applications/new" class="btn btn-mg mt-3">첫 신청서 작성하기</a>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

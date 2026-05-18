@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>업무 프로세스 — 기업 IT자산 수거·매각 플랫폼</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net"/>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet"/>
+  <style>
+    :root {
+      --green: #00c471;
+      --green-dim: #00a35e;
+      --green-glow: rgba(0,196,113,.18);
+      --bg: #0d1117;
+      --bg2: #161b22;
+      --bg3: #1c2230;
+      --border: rgba(255,255,255,.08);
+      --text: #e6edf3;
+      --text-muted: #8b949e;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+      line-height: 1.6;
+    }
+
+    /* NAV */
+    .top-bar {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      height: 60px;
+      background: rgba(13,17,23,.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; padding: 0 40px;
+      gap: 16px;
+    }
+    .top-bar .logo {
+      font-size: 15px; font-weight: 800; color: #fff; text-decoration: none;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .top-bar .logo span { color: var(--green); }
+    .top-bar nav { margin-left: auto; display: flex; gap: 24px; }
+    .top-bar nav a {
+      color: var(--text-muted); font-size: 13px; text-decoration: none;
+      transition: color .2s;
+    }
+    .top-bar nav a:hover { color: #fff; }
+    .btn-login {
+      background: var(--green); color: #000 !important; font-weight: 700;
+      padding: 7px 18px; border-radius: 6px; font-size: 13px;
+      text-decoration: none; transition: background .2s;
+    }
+    .btn-login:hover { background: var(--green-dim); color: #000 !important; }
+
+    /* HERO */
+    .hero {
+      min-height: 100vh;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      text-align: center;
+      padding: 120px 24px 80px;
+      position: relative; overflow: hidden;
+    }
+    .hero::before {
+      content: '';
+      position: absolute; top: -200px; left: 50%; transform: translateX(-50%);
+      width: 800px; height: 800px;
+      background: radial-gradient(circle, rgba(0,196,113,.12) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      border: 1px solid rgba(0,196,113,.35);
+      background: rgba(0,196,113,.08);
+      color: var(--green); font-size: 12px; font-weight: 700;
+      padding: 5px 14px; border-radius: 20px; margin-bottom: 28px;
+      letter-spacing: .5px;
+    }
+    .hero h1 {
+      font-size: clamp(2rem, 5vw, 3.4rem);
+      font-weight: 900; line-height: 1.2;
+      margin-bottom: 20px;
+    }
+    .hero h1 em { color: var(--green); font-style: normal; }
+    .hero p {
+      font-size: 16px; color: var(--text-muted); max-width: 560px;
+      margin: 0 auto 44px;
+    }
+    .hero-cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+    .btn-primary-g {
+      background: var(--green); color: #000; font-weight: 700;
+      padding: 13px 28px; border-radius: 8px; font-size: 15px;
+      text-decoration: none; transition: all .2s; border: none;
+      display: inline-flex; align-items: center; gap: 8px;
+    }
+    .btn-primary-g:hover { background: var(--green-dim); transform: translateY(-1px); color: #000; }
+    .btn-outline-g {
+      background: transparent; color: var(--green); font-weight: 600;
+      padding: 13px 28px; border-radius: 8px; font-size: 15px;
+      text-decoration: none; transition: all .2s;
+      border: 1px solid rgba(0,196,113,.4);
+      display: inline-flex; align-items: center; gap: 8px;
+    }
+    .btn-outline-g:hover { background: var(--green-glow); color: var(--green); }
+
+    /* METRICS */
+    .metrics {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1px; background: var(--border);
+      border: 1px solid var(--border); border-radius: 16px;
+      overflow: hidden; margin: 60px auto 0; max-width: 900px; width: 100%;
+    }
+    .metric-item {
+      background: var(--bg2); padding: 32px 28px; text-align: center;
+    }
+    .metric-num {
+      font-size: 2.6rem; font-weight: 900; color: var(--green); line-height: 1;
+      margin-bottom: 6px;
+    }
+    .metric-num sup { font-size: 1.2rem; }
+    .metric-label { font-size: 13px; color: var(--text-muted); }
+    .metric-sub { font-size: 11px; color: rgba(0,196,113,.7); margin-top: 4px; font-weight: 600; }
+
+    /* SECTION */
+    section { padding: 100px 24px; max-width: 1100px; margin: 0 auto; }
+    .section-label {
+      font-size: 11px; font-weight: 700; color: var(--green); letter-spacing: 2px;
+      text-transform: uppercase; margin-bottom: 12px;
+    }
+    .section-title {
+      font-size: clamp(1.6rem, 3vw, 2.4rem); font-weight: 800; margin-bottom: 14px;
+    }
+    .section-desc { font-size: 15px; color: var(--text-muted); max-width: 560px; }
+
+    /* PROBLEM VS SOLUTION */
+    .compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 48px; }
+    .compare-card {
+      background: var(--bg2); border-radius: 16px; padding: 32px;
+      border: 1px solid var(--border);
+    }
+    .compare-card.bad { border-color: rgba(248,81,73,.2); }
+    .compare-card.good { border-color: rgba(0,196,113,.2); }
+    .compare-card h3 {
+      font-size: 15px; font-weight: 700; margin-bottom: 20px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .compare-card.bad h3 { color: #f85149; }
+    .compare-card.good h3 { color: var(--green); }
+    .compare-item {
+      display: flex; align-items: flex-start; gap: 10px;
+      font-size: 13px; color: var(--text-muted);
+      padding: 10px 0; border-bottom: 1px solid var(--border);
+    }
+    .compare-item:last-child { border-bottom: none; }
+    .compare-item i { margin-top: 2px; flex-shrink: 0; }
+
+    /* PROCESS STEPS */
+    .process-flow { margin-top: 60px; position: relative; }
+    .process-connector {
+      position: absolute; left: 35px; top: 60px; bottom: 60px;
+      width: 2px; background: linear-gradient(to bottom, var(--green), rgba(0,196,113,.1));
+    }
+    .process-step {
+      display: flex; gap: 28px; align-items: flex-start;
+      margin-bottom: 36px; position: relative;
+    }
+    .step-icon-wrap {
+      width: 70px; height: 70px; flex-shrink: 0;
+      background: var(--bg3); border: 2px solid rgba(0,196,113,.3);
+      border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      position: relative; z-index: 1;
+    }
+    .step-icon-wrap i { font-size: 22px; color: var(--green); }
+    .step-num {
+      position: absolute; top: -4px; right: -4px;
+      width: 20px; height: 20px; border-radius: 50%;
+      background: var(--green); color: #000;
+      font-size: 10px; font-weight: 900;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .step-body {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 14px; padding: 24px 28px; flex: 1;
+      transition: border-color .2s;
+    }
+    .step-body:hover { border-color: rgba(0,196,113,.3); }
+    .step-body h4 { font-size: 15px; font-weight: 700; margin-bottom: 6px; }
+    .step-body p { font-size: 13px; color: var(--text-muted); margin: 0; }
+    .step-tag {
+      display: inline-block; font-size: 10px; font-weight: 700;
+      padding: 2px 10px; border-radius: 20px; margin-bottom: 8px;
+      background: rgba(0,196,113,.12); color: var(--green);
+      border: 1px solid rgba(0,196,113,.25);
+    }
+    .step-time {
+      margin-top: 10px; font-size: 11px; color: var(--text-muted);
+      display: flex; align-items: center; gap: 5px;
+    }
+    .step-time i { color: var(--green); }
+
+    /* TIME COMPARISON */
+    .time-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; margin-top: 48px; }
+    .time-card {
+      background: var(--bg2); border-radius: 16px; padding: 32px;
+      border: 1px solid var(--border);
+    }
+    .time-card h3 { font-size: 14px; font-weight: 700; margin-bottom: 24px; color: var(--text-muted); }
+    .time-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 12px 0; border-bottom: 1px solid var(--border); font-size: 13px;
+    }
+    .time-row:last-child { border: none; }
+    .time-row .task { color: var(--text-muted); }
+    .time-before { color: #f85149; font-weight: 700; }
+    .time-after { color: var(--green); font-weight: 700; }
+    .total-row {
+      margin-top: 20px; padding: 16px; border-radius: 10px;
+      display: flex; justify-content: space-between; align-items: center;
+      font-weight: 800; font-size: 15px;
+    }
+    .total-before { background: rgba(248,81,73,.08); border: 1px solid rgba(248,81,73,.2); color: #f85149; }
+    .total-after { background: rgba(0,196,113,.08); border: 1px solid rgba(0,196,113,.2); color: var(--green); }
+
+    /* AUDIT SECTION */
+    .audit-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; margin-top: 48px; }
+    .audit-card {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 14px; padding: 28px 24px;
+      transition: border-color .2s, transform .2s;
+    }
+    .audit-card:hover { border-color: rgba(0,196,113,.3); transform: translateY(-3px); }
+    .audit-icon {
+      width: 48px; height: 48px; border-radius: 12px;
+      background: var(--green-glow); display: flex; align-items: center; justify-content: center;
+      margin-bottom: 16px;
+    }
+    .audit-icon i { font-size: 22px; color: var(--green); }
+    .audit-card h4 { font-size: 14px; font-weight: 700; margin-bottom: 8px; }
+    .audit-card p { font-size: 12px; color: var(--text-muted); line-height: 1.7; }
+
+    /* CTA BANNER */
+    .cta-banner {
+      background: linear-gradient(135deg, var(--bg3) 0%, rgba(0,196,113,.08) 100%);
+      border: 1px solid rgba(0,196,113,.2);
+      border-radius: 20px; padding: 64px 40px;
+      text-align: center; margin: 0 24px 80px;
+    }
+    .cta-banner h2 { font-size: clamp(1.4rem, 3vw, 2rem); font-weight: 800; margin-bottom: 12px; }
+    .cta-banner p { color: var(--text-muted); font-size: 15px; margin-bottom: 32px; }
+
+    /* FOOTER */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 32px 40px;
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 12px; color: var(--text-muted);
+      flex-wrap: wrap; gap: 12px;
+    }
+
+    @media (max-width: 768px) {
+      .compare-grid, .time-grid { grid-template-columns: 1fr; }
+      .top-bar nav { display: none; }
+      .process-connector { display: none; }
+      .step-icon-wrap { width: 50px; height: 50px; }
+      .step-icon-wrap i { font-size: 18px; }
+      .cta-banner { padding: 40px 24px; }
+      footer { flex-direction: column; text-align: center; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<div class="top-bar">
+  <a class="logo" href="#">
+    <i class="bi bi-building-check"></i>
+    IT자산<span>ITAM</span>
+  </a>
+  <nav>
+    <a href="#process">업무 프로세스</a>
+    <a href="#time">시간 절감</a>
+    <a href="#audit">감사 준수</a>
+    <a href="/login" class="btn-login">플랫폼 로그인</a>
+  </nav>
+</div>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-badge">
+    <i class="bi bi-lightning-charge-fill"></i>
+    새마을금고 IT자산 매각 전용 플랫폼
+  </div>
+  <h1>
+    노후 IT자산 처분,<br/>
+    <em>더 빠르고 정확하게.</em>
+  </h1>
+  <p>
+    지점별 분산된 자산 수거 신청부터 금액 산정·매각 완료까지,
+    전 과정을 디지털로 통합 관리합니다.
+    회계감사 기준에 맞는 증빙 자료를 실시간으로 제공합니다.
+  </p>
+  <div class="hero-cta">
+    <a href="/login" class="btn-primary-g">
+      <i class="bi bi-box-arrow-in-right"></i> 지금 시작하기
+    </a>
+    <a href="#process" class="btn-outline-g">
+      <i class="bi bi-play-circle"></i> 프로세스 보기
+    </a>
+  </div>
+
+  <div class="metrics">
+    <div class="metric-item">
+      <div class="metric-num">70<sup>%</sup></div>
+      <div class="metric-label">업무 처리 시간 단축</div>
+      <div class="metric-sub">기존 수작업 대비</div>
+    </div>
+    <div class="metric-item">
+      <div class="metric-num">3일→<span style="font-size:1.8rem">당일</span></div>
+      <div class="metric-label">감사 자료 준비 시간</div>
+      <div class="metric-sub">실시간 데이터 조회</div>
+    </div>
+    <div class="metric-item">
+      <div class="metric-num">100<sup>%</sup></div>
+      <div class="metric-label">자산 이력 추적 가능</div>
+      <div class="metric-sub">신청 ~ 대금 지급</div>
+    </div>
+    <div class="metric-item">
+      <div class="metric-num">0</div>
+      <div class="metric-label">엑셀 수기 입력 오류</div>
+      <div class="metric-sub">디지털 워크플로우</div>
+    </div>
+  </div>
+</div>
+
+<!-- PROBLEM VS SOLUTION -->
+<section>
+  <div class="section-label">WHY ITAM</div>
+  <div class="section-title">기존 방식의 한계</div>
+  <div class="section-desc">
+    지점마다 다른 엑셀 양식, 이메일 첨부, 전화 확인 —
+    매각 한 건을 처리하는 데 수 주가 소요됩니다.
+  </div>
+
+  <div class="compare-grid">
+    <div class="compare-card bad">
+      <h3><i class="bi bi-x-circle-fill"></i> 기존 수작업 방식</h3>
+      <div class="compare-item">
+        <i class="bi bi-x text-danger"></i>
+        지점별 다른 엑셀 양식으로 자산 목록 제출 → 취합 담당자가 수동 병합
+      </div>
+      <div class="compare-item">
+        <i class="bi bi-x text-danger"></i>
+        이메일·전화로 승인 확인 → 누락·지연 빈번
+      </div>
+      <div class="compare-item">
+        <i class="bi bi-x text-danger"></i>
+        수거 일정 조율을 수작업으로 진행 → 재확인 반복
+      </div>
+      <div class="compare-item">
+        <i class="bi bi-x text-danger"></i>
+        금액 산정 결과를 이메일로 개별 통보 → 회신 대기
+      </div>
+      <div class="compare-item">
+        <i class="bi bi-x text-danger"></i>
+        감사 시 자산처분 증빙 서류 수작업 재구성 → 수일 소요
+      </div>
+    </div>
+    <div class="compare-card good">
+      <h3><i class="bi bi-check-circle-fill"></i> ITAM 플랫폼</h3>
+      <div class="compare-item">
+        <i class="bi bi-check2 text-success"></i>
+        통일된 온라인 신청서 → 지점이 직접 입력, 자동 취합
+      </div>
+      <div class="compare-item">
+        <i class="bi bi-check2 text-success"></i>
+        관리자 원클릭 승인 → 지점 즉시 알림
+      </div>
+      <div class="compare-item">
+        <i class="bi bi-check2 text-success"></i>
+        수거 일정 플랫폼 내 확정 → 이중 확인 불필요
+      </div>
+      <div class="compare-item">
+        <i class="bi bi-check2 text-success"></i>
+        금액 입력 즉시 지점 노출 → 온라인 최종 확인
+      </div>
+      <div class="compare-item">
+        <i class="bi bi-check2 text-success"></i>
+        전 단계 이력 자동 기록 → 감사 자료 즉시 출력
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PROCESS -->
+<section id="process" style="padding-top: 0;">
+  <div class="section-label">PROCESS</div>
+  <div class="section-title">7단계 자동화 프로세스</div>
+  <div class="section-desc">
+    신청서 작성부터 대금 지급까지, 모든 단계가 플랫폼 안에서 완결됩니다.
+  </div>
+
+  <div class="process-flow">
+    <div class="process-connector"></div>
+
+    <div class="process-step">
+      <div class="step-icon-wrap">
+        <div class="step-num">1</div>
+        <i class="bi bi-file-earmark-plus-fill"></i>
+      </div>
+      <div class="step-body">
+        <div class="step-tag">지점 담당자</div>
+        <h4>자산 신청서 작성</h4>
+        <p>지점 담당자가 처분 대상 IT자산(PC, 서버, 모니터, 주변기기 등)을 플랫폼에 직접 입력합니다. 수량, 규격, 보유 연한을 함께 기재하여 정확한 산정 기준을 제공합니다.</p>
+        <div class="step-time"><i class="bi bi-clock"></i> 평균 소요 시간: <strong style="color:var(--green)">10분</strong> (기존 엑셀 취합 1~3일 → 즉시)</div>
+      </div>
+    </div>
+
+    <div class="process-step">
+      <div class="step-icon-wrap">
+        <div class="step-num">2</div>
+        <i class="bi bi-person-check-fill"></i>
+      </div>
+      <div class="step-body">
+        <div class="step-tag">복지회 관리자</div>
+        <h4>접수 및 승인</h4>
+        <p>주관사(복지회) 관리자가 신청 내역을 검토하고 원클릭으로 승인합니다. 승인 즉시 지점 담당자에게 상태가 반영되어 별도 연락 없이 진행 상황을 확인할 수 있습니다.</p>
+        <div class="step-time"><i class="bi bi-clock"></i> 평균 소요 시간: <strong style="color:var(--green)">당일</strong> (기존 이메일 회신 대기 2~5일 → 당일)</div>
+      </div>
+    </div>
+
+    <div class="process-step">
+      <div class="step-icon-wrap">
+        <div class="step-num">3</div>
+        <i class="bi bi-calendar2-check-fill"></i>
+      </div>
+      <div class="step-body">
+        <div class="step-tag">매입사</div>
+        <h4>수거 일정 확정</h4>
+        <p>매입사 담당자가 플랫폼에서 수거 날짜를 입력하면 지점에 즉시 공지됩니다. 전화나 문자로 일정을 조율하던 과정이 완전히 자동화됩니다.</p>
+        <div class="step-time"><i class="bi bi-clock"></i> 평균 소요 시간: <strong style="color:var(--green)">1시간 이내</strong> (기존 전화·문자 조율 1~2일 → 즉시)</div>
+      </div>
+    </div>
+
+    <div class="process-step">
+      <div class="step-icon-wrap">
+        <div class="step-num">4</div>
+        <i class="bi bi-truck"></i>
+      </div>
+      <div class="step-body">
+        <div class="step-tag">매입사</div>
+        <h4>실물 수거 완료</h4>
+        <p>현장 수거 완료 후 플랫폼에서 상태를 '수거완료'로 업데이트합니다. 수거 대상 목록과 실수거 내역이 자동으로 기록되어 분쟁 발생 시 근거 자료로 활용됩니다.</p>
+        <div class="step-time"><i class="bi bi-shield-check" style="color:var(--green)"></i> 수거 시점, 담당자, 수량 모두 자동 이력 저장</div>
+      </div>
+    </div>
+
+    <div class="process-step">
+      <div class="step-icon-wrap">
+        <div class="step-num">5</div>
+        <i class="bi bi-currency-dollar"></i>
+      </div>
+      <div class="step-body">
+        <div class="step-tag">매입사</div>
+        <h4>금액 산정 및 통보</h4>
+        <p>실물 검수 후 산정된 매각 금액을 플랫폼에 입력합니다. 지점은 별도 연락 없이 플랫폼에서 산정 결과를 즉시 확인할 수 있습니다.</p>
+        <div class="step-time"><i class="bi bi-clock"></i> 평균 소요 시간: <strong style="color:var(--green)">즉시 공유</strong> (기존 이메일 개별 통보 → 동시 공개)</div>
+      </div>
+    </div>
+
+    <div class="process-step">
+      <div class="step-icon-wrap">
+        <div class="step-num">6</div>
+        <i class="bi bi-patch-check-fill"></i>
+      </div>
+      <div class="step-body">
+        <div class="step-tag">지점 담당자</div>
+        <h4>지점 최종 확인</h4>
+        <p>지점 담당자가 산정 금액을 검토하고 온라인으로 최종 확인합니다. 확인 시점과 담당자 정보가 자동으로 기록되어 사후 분쟁 방지 및 내부 결재 근거로 활용됩니다.</p>
+        <div class="step-time"><i class="bi bi-shield-check" style="color:var(--green)"></i> 확인자·확인 시각 자동 기록</div>
+      </div>
+    </div>
+
+    <div class="process-step">
+      <div class="step-icon-wrap">
+        <div class="step-num">7</div>
+        <i class="bi bi-flag-fill"></i>
+      </div>
+      <div class="step-body">
+        <div class="step-tag">복지회 관리자</div>
+        <h4>거래 완료 및 정산</h4>
+        <p>거래 완료 처리와 함께 해당 건의 전체 이력(신청·승인·수거·산정·확인·완료)이 완결됩니다. 회계팀은 이 데이터를 바탕으로 자산처분 회계처리 및 감사 대응 자료를 즉시 출력할 수 있습니다.</p>
+        <div class="step-time"><i class="bi bi-download" style="color:var(--green)"></i> 전 단계 이력 → 감사 자료 즉시 출력 가능</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TIME COMPARISON -->
+<section id="time" style="padding-top: 0;">
+  <div class="section-label">TIME SAVING</div>
+  <div class="section-title">업무 시간 비교</div>
+  <div class="section-desc">
+    자산 10대 기준, 1건 처리에 소요되는 실제 시간입니다.
+  </div>
+
+  <div class="time-grid">
+    <div class="time-card">
+      <h3><i class="bi bi-x-circle me-2" style="color:#f85149"></i> 기존 방식 (수작업)</h3>
+      <div class="time-row">
+        <span class="task">자산 목록 취합 (엑셀 병합)</span>
+        <span class="time-before">1~3일</span>
+      </div>
+      <div class="time-row">
+        <span class="task">이메일 승인 대기</span>
+        <span class="time-before">2~5일</span>
+      </div>
+      <div class="time-row">
+        <span class="task">수거 일정 전화 조율</span>
+        <span class="time-before">1~2일</span>
+      </div>
+      <div class="time-row">
+        <span class="task">금액 이메일 통보·회신</span>
+        <span class="time-before">1~3일</span>
+      </div>
+      <div class="time-row">
+        <span class="task">감사 자료 재구성</span>
+        <span class="time-before">2~3일</span>
+      </div>
+      <div class="total-row total-before">
+        <span>총 소요 기간</span>
+        <span>7~16일</span>
+      </div>
+    </div>
+
+    <div class="time-card">
+      <h3><i class="bi bi-check-circle me-2" style="color:var(--green)"></i> ITAM 플랫폼</h3>
+      <div class="time-row">
+        <span class="task">자산 신청서 온라인 입력</span>
+        <span class="time-after">10분</span>
+      </div>
+      <div class="time-row">
+        <span class="task">관리자 원클릭 승인</span>
+        <span class="time-after">당일</span>
+      </div>
+      <div class="time-row">
+        <span class="task">플랫폼 내 일정 확정</span>
+        <span class="time-after">1시간</span>
+      </div>
+      <div class="time-row">
+        <span class="task">금액 입력 즉시 공개</span>
+        <span class="time-after">즉시</span>
+      </div>
+      <div class="time-row">
+        <span class="task">이력 자동 기록 → 즉시 출력</span>
+        <span class="time-after">5분</span>
+      </div>
+      <div class="total-row total-after">
+        <span>총 소요 기간</span>
+        <span>2~3일 <small style="font-size:11px;opacity:.7">(수거 일정 제외)</small></span>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top: 28px; background: var(--bg2); border: 1px solid rgba(0,196,113,.2); border-radius: 14px; padding: 24px 28px; display: flex; align-items: center; gap: 20px; flex-wrap: wrap;">
+    <div style="font-size: 3rem; font-weight: 900; color: var(--green); line-height: 1;">70%</div>
+    <div>
+      <div style="font-size: 15px; font-weight: 700; margin-bottom: 4px;">행정 업무 시간 절감</div>
+      <div style="font-size: 13px; color: var(--text-muted);">서류 취합·연락·확인에 쓰던 시간을 핵심 업무에 집중할 수 있습니다. 연간 자산 처분 건수가 많을수록 절감 효과는 배가됩니다.</div>
+    </div>
+  </div>
+</section>
+
+<!-- AUDIT COMPLIANCE -->
+<section id="audit" style="padding-top: 0;">
+  <div class="section-label">COMPLIANCE</div>
+  <div class="section-title">회계감사 규정 완벽 대응</div>
+  <div class="section-desc">
+    자산처분은 회계감사의 핵심 점검 항목입니다.
+    ITAM 플랫폼은 처음부터 감사 대응을 염두에 두고 설계되었습니다.
+  </div>
+
+  <div class="audit-grid">
+    <div class="audit-card">
+      <div class="audit-icon"><i class="bi bi-journal-text"></i></div>
+      <h4>처분 사유 및 경위 기록</h4>
+      <p>자산 신청 시 처분 사유, 보유 연한, 수량이 명시되어 '왜 처분했는가'에 대한 감사 질의에 즉시 답변할 수 있습니다.</p>
+    </div>
+    <div class="audit-card">
+      <div class="audit-icon"><i class="bi bi-clock-history"></i></div>
+      <h4>전 단계 타임스탬프 보존</h4>
+      <p>신청·승인·수거·산정·확인·완료 각 단계의 처리 일시와 담당자가 자동 기록됩니다. 감사 시 처분 프로세스 준수 여부를 즉시 제출할 수 있습니다.</p>
+    </div>
+    <div class="audit-card">
+      <div class="audit-icon"><i class="bi bi-people-fill"></i></div>
+      <h4>승인 권한 분리</h4>
+      <p>지점 신청 → 복지회 승인 → 지점 최종 확인의 3중 구조로 내부통제 기준의 직무분리 요건을 충족합니다.</p>
+    </div>
+    <div class="audit-card">
+      <div class="audit-icon"><i class="bi bi-currency-exchange"></i></div>
+      <h4>매각 금액 투명성 확보</h4>
+      <p>산정 금액 입력 즉시 지점에 공개되어 정보 비대칭 없이 처분 금액의 적정성을 양측이 동시에 확인합니다.</p>
+    </div>
+    <div class="audit-card">
+      <div class="audit-icon"><i class="bi bi-file-earmark-check-fill"></i></div>
+      <h4>감사 자료 즉시 출력</h4>
+      <p>거래 완료 후 건별 전체 이력을 언제든 조회할 수 있습니다. 감사 준비에 수일 걸리던 작업이 5분 이내로 단축됩니다.</p>
+    </div>
+    <div class="audit-card">
+      <div class="audit-icon"><i class="bi bi-shield-lock-fill"></i></div>
+      <h4>권한 기반 접근 제어</h4>
+      <p>지점·복지회·매입사 역할에 따라 열람·수정 권한이 엄격히 분리되어 무단 데이터 변경을 구조적으로 차단합니다.</p>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<div style="max-width: 1100px; margin: 0 auto;">
+  <div class="cta-banner">
+    <div class="hero-badge" style="margin-bottom: 20px;">
+      <i class="bi bi-rocket-takeoff-fill"></i> 지금 바로 시작
+    </div>
+    <h2>지점 IT자산 처분,<br/>오늘부터 플랫폼으로 관리하세요.</h2>
+    <p>엑셀 취합, 이메일 확인, 전화 조율이 모두 사라집니다.<br/>감사 자료는 클릭 한 번으로 준비됩니다.</p>
+    <a href="/login" class="btn-primary-g" style="font-size: 16px; padding: 15px 36px;">
+      <i class="bi bi-box-arrow-in-right"></i> 플랫폼 로그인
+    </a>
+  </div>
+</div>
+
+<footer>
+  <span>© 2025 기업 IT자산 수거·매각 플랫폼 — Powered by Coretail</span>
+  <span style="display:flex; gap: 20px;">
+    <a href="/login" style="color:var(--text-muted); text-decoration:none;">로그인</a>
+    <a href="#process" style="color:var(--text-muted); text-decoration:none;">프로세스</a>
+  </span>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+  // 스크롤 시 step 카드 애니메이션
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.style.opacity = '1';
+        e.target.style.transform = 'translateY(0)';
+      }
+    });
+  }, { threshold: 0.1 });
+
+  document.querySelectorAll('.step-body, .audit-card, .compare-card, .time-card').forEach(el => {
+    el.style.opacity = '0';
+    el.style.transform = 'translateY(20px)';
+    el.style.transition = 'opacity .5s ease, transform .5s ease';
+    observer.observe(el);
+  });
+</script>
+</body>
+</html>

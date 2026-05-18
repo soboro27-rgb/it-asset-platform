@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>중고 IT자산 매각 플랫폼 업무 플로우</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Malgun Gothic', sans-serif; background: #f0f4f8; padding: 30px; }
+
+    h1 { text-align: center; font-size: 20px; color: #1a2e4a; margin-bottom: 6px; }
+    .subtitle { text-align: center; font-size: 13px; color: #666; margin-bottom: 30px; }
+
+    /* 이해관계자 범례 */
+    .legend {
+      display: flex; justify-content: center; gap: 20px; flex-wrap: wrap;
+      margin-bottom: 30px;
+    }
+    .legend-item {
+      display: flex; align-items: center; gap: 8px; font-size: 13px;
+    }
+    .legend-dot {
+      width: 16px; height: 16px; border-radius: 50%;
+    }
+
+    /* 스윔레인 */
+    .swimlane-container {
+      display: grid;
+      grid-template-columns: 110px 1fr 1fr 1fr;
+      gap: 0;
+      background: #fff;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    }
+
+    .lane-header {
+      padding: 14px 8px;
+      font-weight: bold; font-size: 13px; text-align: center;
+      color: #fff; writing-mode: horizontal-tb;
+    }
+    .lane-header.label { background: #1a2e4a; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 12px; }
+    .lane-header.branch   { background: #2e7d32; }
+    .lane-header.welfare  { background: #1565c0; }
+    .lane-header.coretail { background: #6a1b9a; }
+
+    .lane-body {
+      padding: 16px 12px;
+      border-left: 1px solid #e0e0e0;
+    }
+
+    /* 단계 박스 */
+    .step-row {
+      display: contents;
+    }
+    .phase-label {
+      background: #1a2e4a;
+      color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: bold; text-align: center;
+      padding: 8px;
+      border-top: 1px solid #2e4a6a;
+    }
+
+    .step-cell {
+      padding: 10px 12px;
+      border-top: 1px solid #e8edf2;
+      border-left: 1px solid #e8edf2;
+      min-height: 80px;
+      display: flex; flex-direction: column; gap: 8px; justify-content: center;
+    }
+
+    .step-box {
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 12px;
+      line-height: 1.5;
+      position: relative;
+    }
+
+    /* 색상 */
+    .branch-box   { background: #e8f5e9; border: 1.5px solid #2e7d32; color: #1b5e20; }
+    .welfare-box  { background: #e3f2fd; border: 1.5px solid #1565c0; color: #0d3c6e; }
+    .coretail-box { background: #f3e5f5; border: 1.5px solid #6a1b9a; color: #4a1570; }
+    .system-box   { background: #fff8e1; border: 1.5px dashed #f57f17; color: #5d3a00; font-size: 11px; }
+    .joint-box    { background: #fce4ec; border: 1.5px solid #c62828; color: #7f0000; }
+
+    .arrow-down {
+      text-align: center; font-size: 20px; color: #90a4ae;
+      margin: 2px 0;
+    }
+
+    .badge {
+      display: inline-block;
+      background: #fff;
+      border-radius: 12px;
+      padding: 2px 8px;
+      font-size: 10px;
+      font-weight: bold;
+      margin-bottom: 3px;
+    }
+    .badge-g { border: 1px solid #2e7d32; color: #2e7d32; }
+    .badge-b { border: 1px solid #1565c0; color: #1565c0; }
+    .badge-p { border: 1px solid #6a1b9a; color: #6a1b9a; }
+    .badge-y { border: 1px solid #f57f17; color: #f57f17; }
+    .badge-r { border: 1px solid #c62828; color: #c62828; }
+
+    .empty { background: transparent; border: none; }
+
+    /* 전체 플로우 흐름표 (심플 버전) */
+    .flow-section {
+      margin-top: 40px;
+      background: #fff;
+      border-radius: 12px;
+      padding: 24px 30px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    }
+    .flow-section h2 { font-size: 16px; color: #1a2e4a; margin-bottom: 20px; border-bottom: 2px solid #e0e0e0; padding-bottom: 10px; }
+
+    .flow-list { display: flex; flex-direction: column; gap: 0; }
+
+    .flow-item {
+      display: flex; align-items: stretch; gap: 0;
+    }
+
+    .flow-num {
+      width: 36px; min-width: 36px;
+      display: flex; flex-direction: column; align-items: center;
+    }
+    .num-circle {
+      width: 32px; height: 32px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: bold; font-size: 13px; color: #fff;
+      flex-shrink: 0;
+    }
+    .num-line {
+      width: 2px; flex: 1; background: #cfd8dc; margin: 0 auto;
+      min-height: 16px;
+    }
+    .flow-item:last-child .num-line { display: none; }
+
+    .flow-content {
+      padding: 4px 0 20px 14px; flex: 1;
+    }
+    .flow-actor {
+      font-size: 11px; font-weight: bold; margin-bottom: 3px;
+    }
+    .flow-desc {
+      font-size: 13px; color: #333; line-height: 1.6;
+    }
+    .flow-note {
+      font-size: 11px; color: #888; margin-top: 4px;
+    }
+
+    .col-g { background: #2e7d32; }
+    .col-b { background: #1565c0; }
+    .col-p { background: #6a1b9a; }
+    .col-gb { background: linear-gradient(135deg, #1565c0, #2e7d32); }
+    .col-r { background: #c62828; }
+  </style>
+</head>
+<body>
+
+<h1>중고 IT자산 매각 플랫폼 — 업무 플로우 도식도</h1>
+<p class="subtitle">새마을금고복지회 × 새마을금고 지점 × 코어테일</p>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:#2e7d32"></div> 새마을금고 지점 담당자</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#1565c0"></div> 새마을금고복지회 담당자</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#6a1b9a"></div> 코어테일 담당자</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#f57f17"></div> 플랫폼 시스템 자동처리</div>
+</div>
+
+<!-- 상세 단계 플로우 -->
+<div class="flow-section">
+  <h2>전체 업무 단계 흐름</h2>
+  <div class="flow-list">
+
+    <div class="flow-item">
+      <div class="flow-num">
+        <div class="num-circle col-b">1</div>
+        <div class="num-line"></div>
+      </div>
+      <div class="flow-content">
+        <div class="flow-actor" style="color:#1565c0">새마을금고복지회</div>
+        <div class="flow-desc">플랫폼 가입 공지 및 안내문 발송</div>
+        <div class="flow-note">전국 새마을금고 지점 총무담당자 대상 / 코어테일 플랫폼 URL 안내</div>
+      </div>
+    </div>
+
+    <div class="flow-item">
+      <div class="flow-num">
+        <div class="num-circle col-g">2</div>
+        <div class="num-line"></div>
+      </div>
+      <div class="flow-content">
+        <div class="flow-actor" style="color:#2e7d32">새마을금고 지점 담당자</div>
+        <div class="flow-desc">플랫폼 회원가입 → 로그인</div>
+        <div class="flow-note">지점코드 + 담당자 정보 입력 / 복지회 소속 지점 인증</div>
+      </div>
+    </div>
+
+    <div class="flow-item">
+      <div class="flow-num">
+        <div class="num-circle col-g">3</div>
+        <div class="num-line"></div>
+      </div>
+      <div class="flow-content">
+        <div class="flow-actor" style="color:#2e7d32">새마을금고 지점 담당자</div>
+        <div class="flow-desc">폐기/매각 대상 IT 자산 입력 (카테고리별)</div>
+        <div class="flow-note">PC · 노트북 · 태블릿 · 모바일 · 프린터 · 복합기 · 기타전산기기<br>항목별 수량, 모델명, 제조연도, 상태 등 입력</div>
+      </div>
+    </div>
+
+    <div class="flow-item">
+      <div class="flow-num">
+        <div class="num-circle col-g">4</div>
+        <div class="num-line"></div>
+      </div>
+      <div class="flow-content">
+        <div class="flow-actor" style="color:#2e7d32">새마을금고 지점 담당자</div>
+        <div class="flow-desc">신청 제출 (Submit)</div>
+        <div class="flow-note">제출 시 플랫폼이 복지회 · 코어테일 관리자에게 알림 자동 발송</div>
+      </div>
+    </div>
+
+    <div class="flow-item">
+      <div class="flow-num">
+        <div class="num-circle col-gb">5</div>
+        <div class="num-line"></div>
+      </div>
+      <div class="flow-content">
+        <div class="flow-actor" style="color:#7b1fa2">코어테일 담당자 + 새마을금고복지회 (공동 열람)</div>
+        <div class="flow-desc">관리자 페이지에서 신청 내용 확인 — 수량·품목 검토</div>
+        <div class="flow-note">두 기관 모두 동일 신청 건을 조회 가능 / 코어테일이 1차 승인 처리</div>
+      </div>
+    </div>
+
+    <div class="flow-item">
+      <div class="flow-num">
+        <div class="num-circle col-p">6</div>
+        <div class="num-line"></div>
+      </div>
+      <div class="flow-content">
+        <div class="flow-actor" style="color:#6a1b9a">코어테일 담당자</div>
+        <div class="flow-desc">승인 처리 + 방문 수거 일정 입력</div>
+        <div class="flow-note">방문 예정일, 담당 수거팀 정보 등록 → 지점에 알림</div>
+      </div>
+    </div>
+
+    <div class="flow-item">
+      <div class="flow-num">
+        <div class="num-circle col-g">7</div>
+        <div class="num-line"></div>
+      </div>
+      <div class="flow-content">
+        <div class="flow-actor" style="color:#2e7d32">새마을금고 지점 담당자</div>
+        <div class="flow-desc">방문 일정 확인 → 일정 확인 버튼 클릭</div>
+        <div class="flow-note">일정 불가 시 변경 요청 가능</div>
+      </div>
+    </div>
+
+    <div class="flow-item">
+      <div class="flow-num">
+        <div class="num-circle col-p">8</div>
+        <div class="num-line"></div>
+      </div>
+      <div class="flow-content">
+        <div class="flow-actor" style="color:#6a1b9a">코어테일 담당자 (현장)</div>
+        <div class="flow-desc">지점 방문 → IT 자산 일괄 수거</div>
+        <div class="flow-note">인수인계 확인서 서명 / 수거 완료 처리</div>
+      </div>
+    </div>
+
+    <div class="flow-item">
+      <div class="flow-num">
+        <div class="num-circle col-p">9</div>
+        <div class="num-line"></div>
+      </div>
+      <div class="flow-content">
+        <div class="flow-actor" style="color:#6a1b9a">코어테일 담당자</div>
+        <div class="flow-desc">수거 자산 세분화 감정 → 금액 산정 후 플랫폼 입력</div>
+        <div class="flow-note">품목별 단가·금액 산정 내역 등록</div>
+      </div>
+    </div>
+
+    <div class="flow-item">
+      <div class="flow-num">
+        <div class="num-circle col-g">10</div>
+        <div class="num-line"></div>
+      </div>
+      <div class="flow-content">
+        <div class="flow-actor" style="color:#2e7d32">새마을금고 지점 담당자</div>
+        <div class="flow-desc">매각 금액 내역 확인 → 최종 승인</div>
+        <div class="flow-note">금액 이의 시 재산정 요청 가능</div>
+      </div>
+    </div>
+
+    <div class="flow-item">
+      <div class="flow-num">
+        <div class="num-circle col-b">11</div>
+        <div class="num-line"></div>
+      </div>
+      <div class="flow-content">
+        <div class="flow-actor" style="color:#1565c0">새마을금고복지회</div>
+        <div class="flow-desc">매각 대금 지점 계좌 입금</div>
+        <div class="flow-note">플랫폼 내 입금 완료 처리 → 지점에 입금 알림 / 거래 종결</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- 이해관계자별 역할 요약 -->
+<div class="flow-section" style="margin-top:24px;">
+  <h2>이해관계자별 역할 요약</h2>
+  <table style="width:100%; border-collapse:collapse; font-size:13px;">
+    <thead>
+      <tr style="background:#1a2e4a; color:#fff;">
+        <th style="padding:10px 14px; text-align:left;">구분</th>
+        <th style="padding:10px 14px; text-align:left;">역할</th>
+        <th style="padding:10px 14px; text-align:left;">주요 액션</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr style="background:#e8f5e9;">
+        <td style="padding:10px 14px; font-weight:bold; color:#2e7d32;">새마을금고 지점 담당자</td>
+        <td style="padding:10px 14px;">자산 신청자</td>
+        <td style="padding:10px 14px;">회원가입 · 자산입력 · 신청 · 일정확인 · 금액승인</td>
+      </tr>
+      <tr style="background:#e3f2fd;">
+        <td style="padding:10px 14px; font-weight:bold; color:#1565c0;">새마을금고복지회</td>
+        <td style="padding:10px 14px;">사업 주관 · 열람</td>
+        <td style="padding:10px 14px;">플랫폼 공지 · 신청내역 열람 · 매각대금 입금</td>
+      </tr>
+      <tr style="background:#f3e5f5;">
+        <td style="padding:10px 14px; font-weight:bold; color:#6a1b9a;">코어테일 담당자</td>
+        <td style="padding:10px 14px;">운영 · 수거 · 감정</td>
+        <td style="padding:10px 14px;">승인 · 일정등록 · 자산수거 · 금액산정 · 플랫폼운영</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+</body>
+</html>

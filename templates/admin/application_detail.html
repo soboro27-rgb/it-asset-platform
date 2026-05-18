@@ -1,0 +1,827 @@
+{% extends "base.html" %}
+{% block title %}신청 상세 #{{ app.id }} - 관리자{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+  <div>
+    <h4>
+      <i class="bi bi-file-earmark-text me-2" style="color:var(--mg)"></i>
+      {{ app.title if app.title else '신청서 #' ~ app.id }}
+    </h4>
+    <nav aria-label="breadcrumb">
+      <ol class="breadcrumb mb-0">
+        <li class="breadcrumb-item"><a href="/admin/applications" style="color:var(--mg)">신청 목록</a></li>
+        <li class="breadcrumb-item active">#{{ app.id }}</li>
+      </ol>
+    </nav>
+  </div>
+  <span class="s-badge bg-{{ STATUS_COLOR[app.status] }} {% if app.status in ['submitted','priced'] %}text-dark{% endif %}" style="font-size:13px;padding:6px 16px">
+    {{ STATUS_LABEL[app.status] }}
+  </span>
+</div>
+
+<!-- 진행 단계 -->
+{% set steps = [
+  ('submitted','접수'),('approved','승인'),('scheduled','일정확정'),
+  ('schedule_confirmed','수거예정'),('collected','수거완료'),
+  ('priced','금액산정'),('branch_confirmed','지점승인'),('completed','완료')
+] %}
+{% set status_order = ['draft','submitted','approved','scheduled','schedule_confirmed','collected','priced','branch_confirmed','completed'] %}
+{% set cur_idx = status_order.index(app.status) %}
+<div class="step-bar mb-4">
+  {% for s_key, s_name in steps %}
+  {% set s_idx = status_order.index(s_key) %}
+  <div class="step-item {% if s_idx < cur_idx %}step-done{% elif s_idx == cur_idx %}step-active{% else %}step-pending{% endif %}">
+    <div class="step-circle">{{ loop.index }}</div>
+    <div class="step-name">{{ s_name }}</div>
+  </div>
+  {% if not loop.last %}
+  <div class="step-line {% if s_idx < cur_idx %}step-done{% else %}step-pending{% endif %}"></div>
+  {% endif %}
+  {% endfor %}
+</div>
+
+<div class="row g-3">
+  <!-- 왼쪽 -->
+  <div class="col-lg-8">
+
+    <!-- 지점 정보 -->
+    <div class="card mb-3">
+      <div class="card-header"><i class="bi bi-building me-2"></i>지점 정보</div>
+      <div class="card-body">
+        <div class="row g-2" style="font-size:13px">
+          <div class="col-4"><span class="text-muted">지점명</span><div class="fw-semibold mt-1">{{ app.user.branch_name }}</div></div>
+          <div class="col-4"><span class="text-muted">지점코드</span><div class="fw-semibold mt-1">{{ app.user.branch_code }}</div></div>
+          <div class="col-4"><span class="text-muted">지역</span><div class="fw-semibold mt-1">{{ app.user.region }}</div></div>
+          <div class="col-4"><span class="text-muted">신청일시</span><div class="fw-semibold mt-1">{{ app.submitted_at.strftime('%Y-%m-%d %H:%M') if app.submitted_at else '-' }}</div></div>
+          <div class="col-4"><span class="text-muted">승인일시</span><div class="fw-semibold mt-1">{{ app.approved_at.strftime('%Y-%m-%d %H:%M') if app.approved_at else '-' }}</div></div>
+          <div class="col-4"><span class="text-muted">최종업데이트</span><div class="fw-semibold mt-1">{{ app.updated_at.strftime('%Y-%m-%d %H:%M') if app.updated_at else '-' }}</div></div>
+          {% if app.notes %}
+          <div class="col-12">
+            <span class="text-muted">비고</span>
+            <div class="mt-1 p-2 bg-light rounded" style="font-size:12px">{{ app.notes }}</div>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- 데이터 파기/블랑코 처리 정보 입력 폼 (schedule_confirmed + coretail) -->
+    {% if app.status == 'schedule_confirmed' and session.get('role') == 'coretail' %}
+    {% if error == 'wipe_required' %}
+    <div class="alert alert-danger py-2 mb-3" style="font-size:13px">
+      <i class="bi bi-exclamation-triangle-fill me-2"></i>처리일자, 처리업체, 담당자는 필수 입력 항목입니다.
+    </div>
+    {% endif %}
+    <div class="card mb-3 border-success">
+      <div class="card-header text-white" style="background:#2e7d32">
+        <i class="bi bi-shield-check me-2"></i>수거완료 처리 — 데이터 파기/블랑코 정보 입력 (필수)
+      </div>
+      <div class="card-body">
+        <form method="post" action="/admin/applications/{{ app.id }}/collect"
+              enctype="multipart/form-data"
+              onsubmit="return validateCollectForm()">
+
+          <!-- 공통 처리 정보 -->
+          <div class="row g-2 mb-3">
+            <div class="col-4">
+              <label class="form-label fw-semibold" style="font-size:12px">처리일자 <span class="text-danger">*</span></label>
+              <input type="date" name="wipe_date" class="form-control form-control-sm" required/>
+            </div>
+            <div class="col-4">
+              <label class="form-label fw-semibold" style="font-size:12px">처리 업체 <span class="text-danger">*</span></label>
+              <input type="text" name="technician_company" class="form-control form-control-sm" placeholder="업체명" required/>
+            </div>
+            <div class="col-4">
+              <label class="form-label fw-semibold" style="font-size:12px">담당자 <span class="text-danger">*</span></label>
+              <input type="text" name="technician_name" class="form-control form-control-sm" placeholder="담당자명" required/>
+            </div>
+            <div class="col-8">
+              <label class="form-label fw-semibold" style="font-size:12px">처리 장소 (파쇄장소)</label>
+              <input type="text" name="wipe_location" class="form-control form-control-sm" placeholder="예: 경기도 고양시 일산동구 장대길 64-47"/>
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-semibold" style="font-size:12px">데이터 처리 방식 선택 <span class="text-danger">*</span> <span class="text-muted fw-normal">(복수 선택 가능)</span></label>
+              <div class="d-flex gap-4 mt-1">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" name="use_blancco" id="useBlancco" value="1"
+                         onchange="toggleWipeMethod('blanccoDetail', this)"/>
+                  <label class="form-check-label fw-semibold" for="useBlancco" style="color:#1A237E;font-size:13px">
+                    <i class="bi bi-hdd me-1"></i>블랑코 (소프트웨어 영구삭제)
+                  </label>
+                </div>
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" name="use_destruction" id="useDestruction" value="1"
+                         onchange="toggleWipeMethod('destructionDetail', this)"/>
+                  <label class="form-check-label fw-semibold" for="useDestruction" style="color:#2e7d32;font-size:13px">
+                    <i class="bi bi-tools me-1"></i>파쇄 (물리적 파기)
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <!-- 블랑코 상세 -->
+            <div class="col-12" id="blanccoDetail" style="display:none">
+              <div class="p-2 rounded" style="background:#E8EAF6;border:1px solid #9FA8DA">
+                <div class="row g-2">
+                  <div class="col-12">
+                    <label class="form-label fw-semibold mb-1" style="font-size:11px;color:#1A237E">블랑코 삭제방식</label>
+                    <input type="text" name="blancco_method" class="form-control form-control-sm"
+                           value="Blancco Drive Eraser / 영구 삭제 (DoD 5220.22-M 7-pass)"/>
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label fw-semibold mb-1" style="font-size:11px;color:#1A237E">
+                      <i class="bi bi-file-earmark-arrow-up me-1"></i>블랑코 리포트 파일 업로드 <span class="text-danger">*</span>
+                    </label>
+                    <input type="file" name="blancco_report_file" id="blanccoFileInput"
+                           class="form-control form-control-sm" accept=".pdf,.xlsx,.xls"
+                           onchange="showBlanccoFileName(this)"/>
+                    <div id="blanccoFileName" class="text-muted mt-1" style="font-size:10px">
+                      <i class="bi bi-info-circle me-1"></i>블랑코 소프트웨어에서 출력된 리포트 파일을 첨부하세요. (PDF 또는 Excel)
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 파쇄 상세 -->
+            <div class="col-12" id="destructionDetail" style="display:none">
+              <div class="p-2 rounded" style="background:#E8F5E9;border:1px solid #A5D6A7">
+                <div class="row g-2">
+                  <div class="col-6">
+                    <label class="form-label fw-semibold mb-1" style="font-size:11px;color:#2e7d32">파쇄 방식</label>
+                    <input type="text" name="destruction_method" class="form-control form-control-sm"
+                           value="물리적 파쇄 (하드 천공)"/>
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label fw-semibold mb-1" style="font-size:11px;color:#2e7d32">파쇄 확인서 번호</label>
+                    <input type="text" name="destruction_certificate_no" class="form-control form-control-sm" placeholder="확인서 번호"/>
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label fw-semibold mb-1" style="font-size:11px;color:#2e7d32">
+                      <i class="bi bi-camera me-1"></i>천공사진 1 <span class="text-danger">*</span>
+                    </label>
+                    <input type="file" name="destruction_photo1" id="photo1Input" class="form-control form-control-sm"
+                           accept="image/*" onchange="previewPhoto(this,'preview1')"/>
+                    <img id="preview1" src="" alt="" style="display:none;max-width:100%;max-height:120px;margin-top:4px;border-radius:4px;border:1px solid #ccc"/>
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label fw-semibold mb-1" style="font-size:11px;color:#2e7d32">
+                      <i class="bi bi-camera me-1"></i>천공사진 2 <span class="text-danger">*</span>
+                    </label>
+                    <input type="file" name="destruction_photo2" id="photo2Input" class="form-control form-control-sm"
+                           accept="image/*" onchange="previewPhoto(this,'preview2')"/>
+                    <img id="preview2" src="" alt="" style="display:none;max-width:100%;max-height:120px;margin-top:4px;border-radius:4px;border:1px solid #ccc"/>
+                  </div>
+                  <div class="col-12">
+                    <div class="text-muted" style="font-size:10px">
+                      <i class="bi bi-info-circle me-1"></i>천공사진은 파쇄증명서 Excel에 자동 첨부됩니다. (JPG/PNG, 각 10MB 이하)
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-12">
+              <label class="form-label fw-semibold" style="font-size:12px">비고</label>
+              <textarea name="wipe_notes" class="form-control form-control-sm" rows="1" placeholder="특이사항"></textarea>
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-success w-100">
+            <i class="bi bi-box-seam me-2"></i>수거 완료 처리
+          </button>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- 자산 목록 -->
+    {% if app.status != 'schedule_confirmed' or session.get('role') != 'coretail' %}
+    <div class="card mb-3">
+      <div class="card-header"><i class="bi bi-laptop me-2"></i>신청 자산 목록 ({{ app.assets|length }}종)</div>
+      <div class="card-body p-0">
+
+        {% if app.status == 'collected' and session.get('role') == 'coretail' %}
+        <!-- 금액 산정 폼 -->
+        <form method="post" action="/admin/applications/{{ app.id }}/pricing" onsubmit="return confirm('금액 산정 내용을 저장하고 지점에 통보하시겠습니까?')">
+          <table class="table mb-0" style="font-size:13px">
+            <thead class="table-light">
+              <tr>
+                <th class="ps-3">카테고리</th><th>모델명</th><th>수량</th><th>상태</th>
+                <th style="width:130px">매입단가 (원) *</th><th>소계 (매입)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in app.assets %}
+              <tr>
+                <td class="ps-3"><span class="badge bg-secondary">{{ item.category }}</span></td>
+                <td>{{ item.model_name or '-' }}
+                  <div class="text-muted" style="font-size:11px">{{ item.manufacturer or '' }}{% if item.manufacture_year %} {{ item.manufacture_year }}년{% endif %}
+                    {% if item.category in ['PC', '노트북'] %}
+                    {% if item.memory_spec %} · 메모리: {{ item.memory_spec }}{% endif %}{% if item.storage_spec %} · 저장: {{ item.storage_spec }}{% endif %}{% if item.data_wiped %} · <span class="badge bg-success bg-opacity-75" style="font-size:10px">{{ item.data_wiped }}</span>{% endif %}{% if item.category == '노트북' and item.has_adapter %} · <span class="badge bg-info text-dark bg-opacity-75" style="font-size:10px">아답터 {{ item.has_adapter }}</span>{% endif %}
+                    {% endif %}
+                  </div>
+                </td>
+                <td><strong>{{ item.quantity }}</strong>개</td>
+                <td>{% if item.condition == '상' %}<span class="badge bg-success">상</span>{% elif item.condition == '중' %}<span class="badge bg-warning text-dark">중</span>{% else %}<span class="badge bg-danger">하</span>{% endif %}</td>
+                <td>
+                  <input type="number" name="price_{{ item.id }}" class="form-control form-control-sm price-input"
+                         value="{{ item.unit_price | int }}" min="0" step="1000"
+                         data-qty="{{ item.quantity }}" data-row="{{ item.id }}"
+                         oninput="calcRow(this)" style="font-size:13px"/>
+                </td>
+                <td class="fw-semibold" id="sub_{{ item.id }}" style="color:var(--mg)">
+                  {{ "{:,.0f}".format(item.unit_price * item.quantity) }}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+            <tfoot class="table-light">
+              <tr>
+                <td colspan="4" class="text-end fw-bold ps-3">매입 합계</td>
+                <td></td>
+                <td class="fw-bold" style="color:var(--mg);font-size:15px" id="totalAmount">
+                  {% set total_amt = namespace(v=0) %}{% for item in app.assets %}{% set total_amt.v = total_amt.v + item.unit_price * item.quantity %}{% endfor %}
+                  {{ "{:,.0f}".format(total_amt.v) }}
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+          <div class="p-3">
+            <div class="p-2 rounded mb-3" style="background:#f0f7ff;border:1px solid #c8dfff;font-size:13px">
+              <div class="d-flex justify-content-between align-items-center">
+                <span class="text-muted">적용 수수료율 (복지회)</span>
+                <strong class="text-primary">{{ welfare_fee_rate }}%</strong>
+              </div>
+              <div class="d-flex justify-content-between align-items-center mt-1">
+                <span class="text-muted">지점 표시 금액 (수수료 차감)</span>
+                <strong style="color:var(--mg);font-size:15px" id="branchAmount">-</strong>
+              </div>
+            </div>
+            <label class="form-label" style="font-size:13px;font-weight:600">산정 비고</label>
+            <textarea name="pricing_notes" class="form-control" style="font-size:13px" rows="2" placeholder="감정 결과, 특이사항 등"></textarea>
+            <button type="submit" class="btn btn-mg mt-3 w-100">
+              <i class="bi bi-currency-dollar me-2"></i>금액 산정 완료 및 지점 통보
+            </button>
+          </div>
+        </form>
+
+        {% else %}
+        <!-- 일반 자산 목록 -->
+        <table class="table mb-0" style="font-size:13px">
+          <thead class="table-light">
+            <tr>
+              <th class="ps-3">카테고리</th><th>모델명</th><th>제조사</th><th>연도</th><th>수량</th><th>상태</th>
+              {% if app.status in ['priced','branch_confirmed','completed'] %}
+              <th>단가(원)</th><th>소계(원)</th>
+              {% endif %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in app.assets %}
+            <tr>
+              <td class="ps-3"><span class="badge bg-secondary">{{ item.category }}</span></td>
+              <td>{{ item.model_name or '-' }}
+                {% if item.category in ['PC', '노트북'] %}
+                <div class="text-muted" style="font-size:11px">
+                  {% if item.memory_spec %}메모리: {{ item.memory_spec }}{% endif %}{% if item.storage_spec %} · 저장: {{ item.storage_spec }}{% endif %}{% if item.data_wiped %} · <span class="badge bg-success bg-opacity-75" style="font-size:10px">{{ item.data_wiped }}</span>{% endif %}{% if item.category == '노트북' and item.has_adapter %} · <span class="badge bg-info text-dark bg-opacity-75" style="font-size:10px">아답터 {{ item.has_adapter }}</span>{% endif %}
+                </div>
+                {% endif %}
+              </td>
+              <td>{{ item.manufacturer or '-' }}</td>
+              <td>{{ item.manufacture_year or '-' }}</td>
+              <td><strong>{{ item.quantity }}</strong>개</td>
+              <td>{% if item.condition == '상' %}<span class="badge bg-success">상</span>{% elif item.condition == '중' %}<span class="badge bg-warning text-dark">중</span>{% else %}<span class="badge bg-danger">하</span>{% endif %}</td>
+              {% if app.status in ['priced','branch_confirmed','completed'] %}
+              <td>{{ "{:,.0f}".format(item.unit_price) }}</td>
+              <td class="fw-semibold" style="color:var(--mg)">{{ "{:,.0f}".format(item.unit_price * item.quantity) }}</td>
+              {% endif %}
+            </tr>
+            {% endfor %}
+          </tbody>
+          {% if app.status in ['priced','branch_confirmed','completed'] and app.settlement %}
+          <tfoot class="table-light">
+            <tr>
+              <td colspan="6" class="text-end fw-bold ps-3">합계 매각 금액</td>
+              <td colspan="2" class="fw-bold" style="color:var(--mg);font-size:15px">
+                {{ "{:,.0f}".format(app.settlement.total_amount) }}원
+              </td>
+            </tr>
+          </tfoot>
+          {% endif %}
+        </table>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- 데이터 파기/블랑코 처리 결과 (collected 이후) -->
+    {% if app.data_wipe_record and app.status in ['collected','priced','branch_confirmed','completed'] %}
+    <div class="card mb-3">
+      <div class="card-header"><i class="bi bi-shield-check me-2" style="color:#2e7d32"></i>데이터 파기/블랑코 처리 정보</div>
+      <div class="card-body">
+        <div class="row g-2" style="font-size:13px">
+          <div class="col-4"><span class="text-muted">처리일자</span><div class="fw-semibold mt-1">{{ app.data_wipe_record.wipe_date or '-' }}</div></div>
+          <div class="col-4"><span class="text-muted">처리 업체</span><div class="fw-semibold mt-1">{{ app.data_wipe_record.technician_company or '-' }}</div></div>
+          <div class="col-4"><span class="text-muted">담당자</span><div class="fw-semibold mt-1">{{ app.data_wipe_record.technician_name or '-' }}</div></div>
+          {% if app.data_wipe_record.blancco_method %}
+          <div class="col-4"><span class="text-muted">블랑코 삭제방식</span><div class="fw-semibold mt-1">{{ app.data_wipe_record.blancco_method }}</div></div>
+          {% endif %}
+          {% if app.data_wipe_record.blancco_report_file %}
+          <div class="col-4">
+            <span class="text-muted">블랑코 리포트</span>
+            <div class="mt-1 d-flex flex-wrap gap-1">
+              <span class="badge bg-success"><i class="bi bi-file-earmark-check me-1"></i>파일 업로드됨</span>
+              {% if app.data_wipe_record.blancco_received %}
+              <span class="badge bg-primary"><i class="bi bi-check2-all me-1"></i>수령완료</span>
+              {% endif %}
+              {% if app.data_wipe_record.blancco_certificate_file %}
+              <span class="badge" style="background:#0D47A1"><i class="bi bi-patch-check me-1"></i>증명서등록</span>
+              {% endif %}
+            </div>
+          </div>
+          {% endif %}
+          {% if app.data_wipe_record.destruction_method %}
+          <div class="col-4"><span class="text-muted">파쇄 방식</span><div class="fw-semibold mt-1">{{ app.data_wipe_record.destruction_method }}</div></div>
+          {% endif %}
+          {% if app.data_wipe_record.destruction_certificate_no %}
+          <div class="col-4"><span class="text-muted">파쇄 확인서 번호</span><div class="fw-semibold mt-1">{{ app.data_wipe_record.destruction_certificate_no }}</div></div>
+          {% endif %}
+          {% if app.data_wipe_record.notes %}
+          <div class="col-12"><span class="text-muted">비고</span><div class="mt-1 p-2 bg-light rounded" style="font-size:12px">{{ app.data_wipe_record.notes }}</div></div>
+          {% endif %}
+        </div>
+        {% if app.data_wipe_record.destruction_photo1 or app.data_wipe_record.destruction_photo2 %}
+        <div class="mt-3">
+          <div class="fw-semibold mb-2" style="font-size:12px;color:#555">
+            <i class="bi bi-camera me-1"></i>천공사진
+          </div>
+          <div class="d-flex gap-2">
+            {% if app.data_wipe_record.destruction_photo1 %}
+            <img src="/{{ app.data_wipe_record.destruction_photo1 }}" alt="천공사진 1"
+                 style="max-width:180px;max-height:135px;border-radius:4px;border:1px solid #ccc;object-fit:cover"/>
+            {% endif %}
+            {% if app.data_wipe_record.destruction_photo2 %}
+            <img src="/{{ app.data_wipe_record.destruction_photo2 }}" alt="천공사진 2"
+                 style="max-width:180px;max-height:135px;border-radius:4px;border:1px solid #ccc;object-fit:cover"/>
+            {% endif %}
+          </div>
+        </div>
+        {% endif %}
+
+        {% if app.data_wipe_record.item_records %}
+        <div class="mt-3">
+          <div class="fw-semibold mb-1" style="font-size:12px;color:#555">자산별 처리 내역</div>
+          <table class="table table-sm mb-0" style="font-size:12px">
+            <thead class="table-light">
+              <tr><th>카테고리</th><th>모델명</th><th>시리얼번호</th><th>블랑코 인증번호</th><th>결과</th></tr>
+            </thead>
+            <tbody>
+              {% for ir in app.data_wipe_record.item_records %}
+              <tr>
+                <td><span class="badge bg-secondary">{{ ir.asset_item.category }}</span></td>
+                <td>{{ ir.asset_item.model_name or '-' }}</td>
+                <td>{{ ir.serial_number or '-' }}</td>
+                <td>{{ ir.certificate_no or '-' }}</td>
+                <td>{% if ir.wipe_result == '성공' %}<span class="badge bg-success">성공</span>{% else %}<span class="badge bg-danger">{{ ir.wipe_result }}</span>{% endif %}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- 방문 일정 정보 (scheduled 이후) -->
+    {% if app.schedule and app.status not in ['submitted','approved'] %}
+    <div class="card mb-3">
+      <div class="card-header"><i class="bi bi-calendar-check me-2"></i>방문 수거 일정</div>
+      <div class="card-body">
+        <div class="row g-2" style="font-size:13px">
+          <div class="col-4"><span class="text-muted">방문 예정일</span><div class="fw-semibold mt-1">{{ app.schedule.visit_date }}</div></div>
+          <div class="col-4"><span class="text-muted">방문 시간</span><div class="fw-semibold mt-1">{{ app.schedule.visit_time }}</div></div>
+          <div class="col-4"><span class="text-muted">담당자</span><div class="fw-semibold mt-1">{{ app.schedule.collector_name }}</div></div>
+          <div class="col-4"><span class="text-muted">연락처</span><div class="fw-semibold mt-1">{{ app.schedule.collector_phone }}</div></div>
+          <div class="col-4"><span class="text-muted">지점 확인</span>
+            <div class="mt-1">
+              {% if app.schedule.branch_confirmed %}
+              <span class="badge bg-success">확인완료 ({{ app.schedule.confirmed_at.strftime('%m-%d') if app.schedule.confirmed_at else '' }})</span>
+              {% else %}<span class="badge bg-warning text-dark">대기중</span>{% endif %}
+            </div>
+          </div>
+          {% if app.schedule.notes %}
+          <div class="col-12"><span class="text-muted">메모</span><div class="mt-1 p-2 bg-light rounded" style="font-size:12px">{{ app.schedule.notes }}</div></div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- 정산 정보 (priced 이후) -->
+    {% if app.settlement and app.status in ['priced','branch_confirmed','completed'] %}
+    <div class="card mb-3">
+      <div class="card-header"><i class="bi bi-receipt me-2"></i>정산 정보</div>
+      <div class="card-body" style="font-size:13px">
+        <div class="row g-2 mb-3">
+          <div class="col-4">
+            <span class="text-muted">매입사 매입금액</span>
+            <div class="fw-bold mt-1" style="font-size:16px;color:#555">{{ "{:,.0f}".format(app.settlement.total_amount) }}원</div>
+          </div>
+          <div class="col-4">
+            <span class="text-muted">복지회 수수료 ({{ app.settlement.welfare_fee_rate }}%)</span>
+            <div class="fw-bold mt-1 text-danger" style="font-size:14px">
+              - {{ "{:,.0f}".format(app.settlement.total_amount * app.settlement.welfare_fee_rate / 100) }}원
+            </div>
+          </div>
+          <div class="col-4">
+            <span class="text-muted">지점 수령 예정액</span>
+            <div class="fw-bold mt-1" style="font-size:18px;color:var(--mg)">{{ "{:,.0f}".format(app.settlement.branch_total_amount) }}원</div>
+          </div>
+        </div>
+        <div class="row g-2">
+          <div class="col-6"><span class="text-muted">지점 승인</span>
+            <div class="mt-1">{% if app.settlement.branch_confirmed %}<span class="badge bg-success">승인 ({{ app.settlement.branch_confirmed_at.strftime('%m-%d') if app.settlement.branch_confirmed_at else '' }})</span>{% else %}<span class="badge bg-warning text-dark">대기중</span>{% endif %}</div>
+          </div>
+          <div class="col-6"><span class="text-muted">복지회 확인</span>
+            <div class="mt-1">{% if app.settlement.welfare_confirmed %}<span class="badge bg-success">확인완료</span>{% else %}<span class="badge bg-secondary">미확인</span>{% endif %}</div>
+          </div>
+          <div class="col-6"><span class="text-muted">입금일</span><div class="fw-semibold mt-1">{{ app.settlement.payment_date or '-' }}</div></div>
+          {% if app.settlement.pricing_notes %}
+          <div class="col-12"><span class="text-muted">비고</span><div class="mt-1 p-2 bg-light rounded" style="font-size:12px">{{ app.settlement.pricing_notes }}</div></div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+  </div>
+
+  <!-- 오른쪽: 액션 패널 -->
+  <div class="col-lg-4">
+
+    {% if app.status == 'submitted' and session.get('role') == 'coretail' %}
+    <!-- 승인 -->
+    <div class="card border-warning mb-3">
+      <div class="card-header" style="background:#fff8e1"><i class="bi bi-check-circle me-2"></i>신청 검토 및 승인</div>
+      <div class="card-body">
+        <p style="font-size:13px" class="mb-3">신청 내용을 검토한 후 승인해 주세요.</p>
+        <form method="post" action="/admin/applications/{{ app.id }}/approve" onsubmit="return confirm('신청을 승인하시겠습니까?')">
+          <button type="submit" class="btn btn-mg w-100">
+            <i class="bi bi-check-circle me-2"></i>승인 처리
+          </button>
+        </form>
+      </div>
+    </div>
+
+    {% elif app.status == 'approved' and session.get('role') == 'coretail' %}
+    <!-- 방문 일정 입력 -->
+    <div class="card border-primary mb-3">
+      <div class="card-header bg-primary text-white"><i class="bi bi-calendar-plus me-2"></i>방문 수거 일정 입력</div>
+      <div class="card-body">
+        <form method="post" action="/admin/applications/{{ app.id }}/schedule">
+          <div class="mb-2">
+            <label class="form-label" style="font-size:12px;font-weight:600">방문 예정일 *</label>
+            <input type="date" name="visit_date" class="form-control form-control-sm" required/>
+          </div>
+          <div class="mb-2">
+            <label class="form-label" style="font-size:12px;font-weight:600">방문 시간 *</label>
+            <input type="time" name="visit_time" class="form-control form-control-sm" required/>
+          </div>
+          <div class="mb-2">
+            <label class="form-label" style="font-size:12px;font-weight:600">수거 담당자명 *</label>
+            <input type="text" name="collector_name" class="form-control form-control-sm" placeholder="담당자명" required/>
+          </div>
+          <div class="mb-2">
+            <label class="form-label" style="font-size:12px;font-weight:600">담당자 연락처 *</label>
+            <input type="text" name="collector_phone" class="form-control form-control-sm" placeholder="010-0000-0000" required/>
+          </div>
+          <div class="mb-3">
+            <label class="form-label" style="font-size:12px;font-weight:600">메모</label>
+            <textarea name="notes" class="form-control form-control-sm" rows="2" placeholder="방문 시 안내사항 등"></textarea>
+          </div>
+          <button type="submit" class="btn btn-primary w-100">
+            <i class="bi bi-calendar-check me-2"></i>일정 등록 및 지점 통보
+          </button>
+        </form>
+      </div>
+    </div>
+
+    {% elif app.status == 'scheduled' %}
+    <div class="card border-0 mb-3" style="background:#e3f2fd">
+      <div class="card-body text-center py-4">
+        <i class="bi bi-hourglass-split" style="font-size:36px;color:#1565c0"></i>
+        <div class="fw-bold mt-2">지점 일정 확인 대기 중</div>
+        <div class="text-muted mt-1" style="font-size:12px">지점 담당자의 일정 확인을<br/>기다리고 있습니다.</div>
+      </div>
+    </div>
+
+    {% elif app.status == 'schedule_confirmed' and session.get('role') == 'coretail' %}
+    <!-- 수거 완료 처리 안내 -->
+    <div class="card border-success mb-3" style="background:#e8f5e9">
+      <div class="card-body text-center py-4">
+        <i class="bi bi-shield-check" style="font-size:36px;color:#2e7d32"></i>
+        <div class="fw-bold mt-2">데이터 파기 정보 입력 필요</div>
+        <div class="text-muted mt-1" style="font-size:12px">좌측 양식에 데이터 파기/블랑코<br/>처리 정보 입력 후<br/>수거 완료 처리해 주세요.</div>
+      </div>
+    </div>
+
+    {% elif app.status == 'collected' and session.get('role') == 'coretail' %}
+    <div class="card border-0 mb-3" style="background:#fff3e0">
+      <div class="card-body text-center py-3">
+        <i class="bi bi-calculator" style="font-size:32px;color:#f57c00"></i>
+        <div class="fw-bold mt-2">좌측 표에서 금액 산정</div>
+        <div class="text-muted mt-1" style="font-size:12px">각 자산 항목의 단가를 입력하고<br/>금액 산정 완료 버튼을 눌러주세요.</div>
+      </div>
+    </div>
+
+    {% elif app.status == 'priced' %}
+    <div class="card border-0 mb-3" style="background:#fff8e1">
+      <div class="card-body text-center py-4">
+        <i class="bi bi-hourglass-split" style="font-size:36px;color:#f57c00"></i>
+        <div class="fw-bold mt-2">지점 금액 승인 대기 중</div>
+        <div class="text-muted mt-1" style="font-size:12px">지점 담당자의 금액 승인을<br/>기다리고 있습니다.</div>
+        {% if app.settlement %}
+        <div class="mt-3 p-2 bg-white rounded border" style="font-size:13px">
+          <div class="text-muted" style="font-size:11px">매입금액</div>
+          <div style="font-size:16px;font-weight:700;color:#555">{{ "{:,.0f}".format(app.settlement.total_amount) }}원</div>
+          <div class="text-muted mt-1" style="font-size:11px">지점 표시 금액 (수수료 {{ app.settlement.welfare_fee_rate }}% 차감)</div>
+          <div style="font-size:20px;font-weight:700;color:var(--mg)">{{ "{:,.0f}".format(app.settlement.branch_total_amount) }}원</div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    {% elif app.status == 'branch_confirmed' and session.get('role') == 'welfare' %}
+    <!-- 입금 완료 (복지회만) -->
+    <div class="card border-success mb-3">
+      <div class="card-header" style="background:#e8f5e9"><i class="bi bi-bank me-2"></i>매각 대금 입금 처리</div>
+      <div class="card-body">
+        {% if app.settlement %}
+        <div class="mb-3" style="font-size:13px">
+          <div class="d-flex justify-content-between py-1 border-bottom">
+            <span class="text-muted">매입사 매입금액</span>
+            <strong>{{ "{:,.0f}".format(app.settlement.total_amount) }}원</strong>
+          </div>
+          <div class="d-flex justify-content-between py-1 border-bottom">
+            <span class="text-muted">복지회 수수료 ({{ app.settlement.welfare_fee_rate }}%)</span>
+            <strong class="text-danger">- {{ "{:,.0f}".format(app.settlement.total_amount * app.settlement.welfare_fee_rate / 100) }}원</strong>
+          </div>
+          <div class="d-flex justify-content-between py-1">
+            <span class="text-muted fw-bold">지점 입금액</span>
+            <strong style="font-size:18px;color:var(--mg)">{{ "{:,.0f}".format(app.settlement.branch_total_amount) }}원</strong>
+          </div>
+        </div>
+        {% endif %}
+        <p style="font-size:13px" class="mb-3">지점으로 매각 대금 입금 후 처리하세요.</p>
+        <form method="post" action="/admin/applications/{{ app.id }}/complete" onsubmit="return confirm('입금 완료로 처리하시겠습니까?\n이 작업은 되돌릴 수 없습니다.')">
+          <button type="submit" class="btn btn-success w-100">
+            <i class="bi bi-bank me-2"></i>입금 완료 처리
+          </button>
+        </form>
+      </div>
+    </div>
+
+    {% elif app.status == 'branch_confirmed' and session.get('role') == 'coretail' %}
+    <div class="card border-0 mb-3" style="background:#e8f5e9">
+      <div class="card-body text-center py-4">
+        <i class="bi bi-hourglass-split" style="font-size:36px;color:var(--mg)"></i>
+        <div class="fw-bold mt-2">복지회 입금 처리 대기 중</div>
+        <div class="text-muted mt-1" style="font-size:12px">복지회에서 매각 대금<br/>입금 처리 중입니다.</div>
+      </div>
+    </div>
+
+    {% elif app.status == 'completed' %}
+    <div class="card border-0 mb-3" style="background:#e8f5e9">
+      <div class="card-body text-center py-4">
+        <i class="bi bi-check-circle-fill" style="font-size:40px;color:var(--mg)"></i>
+        <div class="fw-bold mt-2 fs-5">거래 완료</div>
+        {% if app.settlement %}
+        <div class="mt-3 p-3 bg-white rounded border" style="font-size:13px;text-align:left">
+          <div class="d-flex justify-content-between py-1 border-bottom">
+            <span class="text-muted">매입금액</span>
+            <strong>{{ "{:,.0f}".format(app.settlement.total_amount) }}원</strong>
+          </div>
+          <div class="d-flex justify-content-between py-1 border-bottom">
+            <span class="text-muted">수수료 ({{ app.settlement.welfare_fee_rate }}%)</span>
+            <strong class="text-danger">- {{ "{:,.0f}".format(app.settlement.total_amount * app.settlement.welfare_fee_rate / 100) }}원</strong>
+          </div>
+          <div class="d-flex justify-content-between py-1">
+            <span class="text-muted">지점 입금액</span>
+            <strong style="font-size:16px;color:var(--mg)">{{ "{:,.0f}".format(app.settlement.branch_total_amount) }}원</strong>
+          </div>
+          {% if app.settlement.payment_date %}
+          <div class="text-center mt-2" style="font-size:11px;color:#888">입금일: {{ app.settlement.payment_date }}</div>
+          {% endif %}
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- 데이터 파기 리포트 다운로드 -->
+    {% if app.data_wipe_record and app.status in ['collected','priced','branch_confirmed','completed'] %}
+    {% set wr = app.data_wipe_record %}
+    <div class="card mb-3">
+      <div class="card-header" style="font-size:13px"><i class="bi bi-file-earmark-excel me-2" style="color:#217346"></i>데이터 파기 리포트</div>
+      <div class="card-body p-2">
+
+        <!-- ① 블랑코 영구삭제 보고서 -->
+        {% if wr.blancco_report_file %}
+        <div class="p-2 rounded mb-2" style="background:#E8EAF6;border:1px solid #9FA8DA">
+          <div class="fw-semibold mb-1" style="font-size:12px;color:#1A237E">
+            <i class="bi bi-hdd me-1"></i>① 블랑코 영구삭제 보고서
+          </div>
+
+          {% if wr.blancco_certificate_file %}
+          <!-- 증명서 업로드됨 → 다운로드 -->
+          <div class="d-flex align-items-center gap-2 mb-1">
+            <span class="badge bg-success" style="font-size:10px"><i class="bi bi-patch-check me-1"></i>증명서 등록완료</span>
+            <span class="text-muted" style="font-size:10px">{{ wr.blancco_received_at.strftime('%Y-%m-%d') if wr.blancco_received_at else '' }}</span>
+          </div>
+          <a href="/admin/applications/{{ app.id }}/report/blancco"
+             class="btn btn-sm w-100 mb-1" style="background:#1A237E;color:#fff;font-size:12px">
+            <i class="bi bi-download me-1"></i>증명서 다운로드
+          </a>
+          {% elif wr.blancco_received %}
+          <!-- 수령완료 → 증명서 업로드 폼 -->
+          <div class="d-flex align-items-center gap-2 mb-2">
+            <span class="badge bg-primary" style="font-size:10px"><i class="bi bi-check2-circle me-1"></i>수령완료</span>
+            <span class="badge bg-warning text-dark" style="font-size:10px">증명서 미등록</span>
+          </div>
+          {% if session.get('role') == 'coretail' %}
+          <form method="post" action="/admin/applications/{{ app.id }}/blancco/upload_cert"
+                enctype="multipart/form-data">
+            <div class="input-group input-group-sm">
+              <input type="file" name="blancco_certificate" class="form-control form-control-sm"
+                     accept=".pdf,.xlsx,.xls" required style="font-size:11px"/>
+              <button type="submit" class="btn btn-sm" style="background:#1A237E;color:#fff;font-size:11px">
+                <i class="bi bi-upload me-1"></i>증명서 업로드
+              </button>
+            </div>
+            <div class="text-muted mt-1" style="font-size:10px">블랑코 영구삭제 증명서를 업로드하세요. (PDF 또는 Excel)</div>
+          </form>
+          {% endif %}
+          {% else %}
+          <!-- 수령 미처리 → 수령완료 버튼 + 원본 다운로드 -->
+          <div class="d-flex gap-2 mb-1">
+            <a href="/admin/applications/{{ app.id }}/report/blancco"
+               class="btn btn-sm flex-fill" style="background:#1A237E;color:#fff;font-size:11px">
+              <i class="bi bi-download me-1"></i>보고서 열람
+            </a>
+            {% if session.get('role') == 'coretail' %}
+            <form method="post" action="/admin/applications/{{ app.id }}/blancco/receive"
+                  onsubmit="return confirm('블랑코 보고서를 수령완료 처리하시겠습니까?\n데이터 파기 처리 완료로 기록됩니다.')"
+                  class="flex-fill">
+              <button type="submit" class="btn btn-sm w-100" style="background:#0D47A1;color:#fff;font-size:11px">
+                <i class="bi bi-check2-all me-1"></i>수령완료 처리
+              </button>
+            </form>
+            {% endif %}
+          </div>
+          <div class="text-muted" style="font-size:10px"><i class="bi bi-info-circle me-1"></i>수령완료 후 데이터파기 증명서를 업로드할 수 있습니다.</div>
+          {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- ② ③ ④ 파쇄/인수인계/폐기확인 개별 다운로드 -->
+        {% if wr.destruction_method %}
+        <div class="p-2 rounded" style="background:#E8F5E9;border:1px solid #A5D6A7">
+          <div class="fw-semibold mb-2" style="font-size:12px;color:#2e7d32">
+            <i class="bi bi-tools me-1"></i>파쇄 관련 서류 (신청내역 자동기재)
+          </div>
+          <a href="/admin/applications/{{ app.id }}/report/shredding"
+             class="btn btn-sm w-100 mb-1" style="background:#2e7d32;color:#fff;font-size:12px">
+            <i class="bi bi-download me-1"></i>② 파쇄증명서
+          </a>
+          <a href="/admin/applications/{{ app.id }}/report/transfer"
+             class="btn btn-sm w-100 mb-1" style="background:#388E3C;color:#fff;font-size:12px">
+            <i class="bi bi-download me-1"></i>③ 물품인수인계증
+          </a>
+          <a href="/admin/applications/{{ app.id }}/report/disposal"
+             class="btn btn-sm w-100" style="background:#43A047;color:#fff;font-size:12px">
+            <i class="bi bi-download me-1"></i>④ 폐기물품확인서
+          </a>
+        </div>
+        {% endif %}
+
+        {% if not wr.blancco_report_file and not wr.destruction_method %}
+        <div class="text-muted text-center py-2" style="font-size:12px">
+          <i class="bi bi-info-circle me-1"></i>처리 방식에 따라 서류 다운로드가 표시됩니다.
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- 신청자 정보 요약 -->
+    <div class="card">
+      <div class="card-header"><i class="bi bi-person-fill me-2"></i>신청자 정보</div>
+      <div class="card-body" style="font-size:13px">
+        <div class="d-flex justify-content-between py-1 border-bottom">
+          <span class="text-muted">지점명</span><strong>{{ app.user.branch_name }}</strong>
+        </div>
+        <div class="d-flex justify-content-between py-1 border-bottom">
+          <span class="text-muted">지점코드</span><strong>{{ app.user.branch_code }}</strong>
+        </div>
+        <div class="d-flex justify-content-between py-1">
+          <span class="text-muted">지역</span><strong>{{ app.user.region }}</strong>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="mt-3">
+  <a href="/admin/applications" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-arrow-left me-1"></i>목록으로 돌아가기
+  </a>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function previewPhoto(input, previewId) {
+  const preview = document.getElementById(previewId);
+  if (!preview) return;
+  if (input.files && input.files[0]) {
+    const reader = new FileReader();
+    reader.onload = e => { preview.src = e.target.result; preview.style.display = 'block'; };
+    reader.readAsDataURL(input.files[0]);
+  } else {
+    preview.src = ''; preview.style.display = 'none';
+  }
+}
+
+function showBlanccoFileName(input) {
+  const el = document.getElementById('blanccoFileName');
+  if (!el) return;
+  if (input.files && input.files[0]) {
+    el.innerHTML = '<i class="bi bi-file-earmark-check me-1" style="color:#1A237E"></i><strong>' + input.files[0].name + '</strong>';
+  } else {
+    el.innerHTML = '<i class="bi bi-info-circle me-1"></i>블랑코 소프트웨어에서 출력된 리포트 파일을 첨부하세요. (PDF 또는 Excel)';
+  }
+}
+
+function toggleWipeMethod(divId, checkbox) {
+  const el = document.getElementById(divId);
+  if (!el) return;
+  el.style.display = checkbox.checked ? 'block' : 'none';
+  if (!checkbox.checked) {
+    el.querySelectorAll('input[type=text]').forEach(i => { i.value = ''; });
+    el.querySelectorAll('input[type=file]').forEach(i => { i.value = ''; });
+  }
+}
+
+function validateCollectForm() {
+  const blancco = document.getElementById('useBlancco');
+  const dest = document.getElementById('useDestruction');
+  if (blancco && dest && !blancco.checked && !dest.checked) {
+    alert('블랑코 또는 파쇄 처리 방식을 최소 하나 이상 선택해 주세요.');
+    return false;
+  }
+  if (blancco && blancco.checked) {
+    const fileInput = document.getElementById('blanccoFileInput');
+    if (fileInput && !fileInput.files.length) {
+      alert('블랑코 처리를 선택한 경우 리포트 파일을 첨부해 주세요.');
+      return false;
+    }
+  }
+  return confirm('데이터 파기/블랑코 처리 정보를 저장하고 수거 완료로 처리하시겠습니까?');
+}
+
+const WELFARE_FEE_RATE = {{ welfare_fee_rate | default(0) }};
+
+function calcRow(input) {
+  const qty = parseFloat(input.dataset.qty) || 1;
+  const price = parseFloat(input.value) || 0;
+  const rowId = input.dataset.row;
+  const subEl = document.getElementById('sub_' + rowId);
+  if (subEl) subEl.textContent = (price * qty).toLocaleString('ko-KR');
+  calcTotal();
+}
+
+function calcTotal() {
+  let total = 0;
+  document.querySelectorAll('.price-input').forEach(inp => {
+    const qty = parseFloat(inp.dataset.qty) || 1;
+    const price = parseFloat(inp.value) || 0;
+    total += price * qty;
+  });
+  const el = document.getElementById('totalAmount');
+  if (el) el.textContent = total.toLocaleString('ko-KR');
+
+  const branchEl = document.getElementById('branchAmount');
+  if (branchEl) {
+    const branch = total * (1 - WELFARE_FEE_RATE / 100);
+    branchEl.textContent = branch.toLocaleString('ko-KR') + '원';
+  }
+}
+
+// 페이지 로드 시 초기 계산
+document.addEventListener('DOMContentLoaded', calcTotal);
+</script>
+{% endblock %}

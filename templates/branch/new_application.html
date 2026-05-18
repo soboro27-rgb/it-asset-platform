@@ -1,0 +1,334 @@
+{% extends "base.html" %}
+{% block title %}자산 신청서 작성{% endblock %}
+
+{% block extra_css %}
+<style>
+  .asset-table th { background: #f8f9fa; font-size: 12px; white-space: nowrap; }
+  .asset-table td { padding: 6px 8px; vertical-align: middle; }
+  .asset-table select, .asset-table input { font-size: 13px; padding: 5px 8px; }
+  .btn-remove { padding: 3px 8px; font-size: 12px; }
+  .category-icon { font-size: 18px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h4><i class="bi bi-plus-circle-fill me-2" style="color:var(--mg)"></i>자산 신청서 작성</h4>
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb mb-0">
+      <li class="breadcrumb-item"><a href="/branch/dashboard" style="color:var(--mg)">대시보드</a></li>
+      <li class="breadcrumb-item active">신규 신청서</li>
+    </ol>
+  </nav>
+</div>
+
+<form method="post" action="/branch/applications/new" id="appForm">
+  <!-- 기본 정보 -->
+  <div class="card mb-3">
+    <div class="card-header"><i class="bi bi-info-circle me-2"></i>기본 정보</div>
+    <div class="card-body">
+      <div class="row g-3">
+        <div class="col-md-8">
+          <label class="form-label fw-semibold" style="font-size:13px">신청서 제목</label>
+          <input type="text" name="title" class="form-control" style="font-size:13px" placeholder="예) 2024년 하반기 노후 IT자산 매각 신청" required/>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label fw-semibold" style="font-size:13px">지점명</label>
+          <input type="text" class="form-control" style="font-size:13px;background:#f8f9fa" value="{{ session.get('branch_name') }}" readonly/>
+        </div>
+        <div class="col-12">
+          <label class="form-label fw-semibold" style="font-size:13px">비고 / 특이사항</label>
+          <textarea name="notes" class="form-control" style="font-size:13px" rows="2" placeholder="수거 시 주의사항, 장비 위치, 담당자 연락처 등"></textarea>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 자산 목록 -->
+  <div class="card mb-3">
+    <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+      <span><i class="bi bi-laptop me-2"></i>자산 목록 <span class="badge ms-1" style="background:var(--mg);font-size:11px" id="itemCount">0</span></span>
+      <div class="d-flex gap-2 flex-wrap">
+        <a href="/branch/assets/template" class="btn btn-sm btn-outline-secondary">
+          <i class="bi bi-file-earmark-excel me-1"></i>엑셀 양식
+        </a>
+        <button type="button" class="btn btn-sm btn-outline-success" id="excelUploadBtn" onclick="triggerExcelUpload()">
+          <i class="bi bi-upload me-1"></i>엑셀 일괄등록
+        </button>
+        <input type="file" id="excelFileInput" accept=".xlsx" style="display:none" onchange="handleExcelUpload(this)">
+        <button type="button" class="btn btn-sm btn-mg" onclick="addRow()">
+          <i class="bi bi-plus-lg me-1"></i>항목 추가
+        </button>
+      </div>
+    </div>
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table asset-table mb-0" id="assetTable">
+          <thead>
+            <tr>
+              <th class="ps-3" style="width:140px">카테고리 *</th>
+              <th style="min-width:130px">모델명</th>
+              <th style="min-width:100px">제조사</th>
+              <th style="width:80px">제조연도</th>
+              <th style="width:70px">수량 *</th>
+              <th style="width:80px">상태 *</th>
+              <th style="min-width:140px">비고</th>
+              <th style="width:50px"></th>
+            </tr>
+          </thead>
+          <tbody id="assetBody">
+            <!-- 동적 rows -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card-footer bg-white" id="emptyMsg">
+      <div class="text-center text-muted py-3" style="font-size:13px">
+        <i class="bi bi-plus-circle me-1"></i>위 "항목 추가" 버튼을 눌러 자산을 등록하세요
+      </div>
+    </div>
+  </div>
+
+  <!-- 엑셀 업로드 결과 -->
+  <div id="excelResult" class="mb-3" style="display:none"></div>
+
+  <!-- 카테고리 안내 -->
+  <div class="card mb-4">
+    <div class="card-body py-2 px-3">
+      <small class="text-muted"><i class="bi bi-info-circle me-1"></i>
+        대상 자산 카테고리:
+        <span class="badge bg-light text-dark border me-1">PC</span>
+        <span class="badge bg-light text-dark border me-1">노트북</span>
+        <span class="badge bg-light text-dark border me-1">태블릿</span>
+        <span class="badge bg-light text-dark border me-1">모바일</span>
+        <span class="badge bg-light text-dark border me-1">프린터</span>
+        <span class="badge bg-light text-dark border me-1">복합기</span>
+        <span class="badge bg-light text-dark border me-1">기타전산기기</span>
+      </small>
+    </div>
+  </div>
+
+  <!-- 버튼 -->
+  <div class="d-flex gap-2 justify-content-end">
+    <a href="/branch/dashboard" class="btn btn-outline-secondary">취소</a>
+    <button type="submit" name="action" value="draft" class="btn btn-outline-dark">
+      <i class="bi bi-save me-1"></i>임시저장
+    </button>
+    <button type="submit" name="action" value="submit" class="btn btn-mg" id="submitBtn" onclick="return confirmSubmit()">
+      <i class="bi bi-send-fill me-1"></i>신청서 제출
+    </button>
+  </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const CATEGORIES = {{ CATEGORIES | tojson }};
+let rowIndex = 0;
+
+function buildMainRowHtml(idx) {
+  return `
+    <td class="ps-3">
+      <select name="category[]" class="form-select" required style="font-size:13px" onchange="onCategoryChange(this,${idx})">
+        <option value="">선택</option>
+        ${CATEGORIES.map(c => `<option value="${c}">${c}</option>`).join('')}
+      </select>
+    </td>
+    <td><input type="text" name="model_name[]" class="form-control" placeholder="모델명" style="font-size:13px"/></td>
+    <td><input type="text" name="manufacturer[]" class="form-control" placeholder="제조사" style="font-size:13px"/></td>
+    <td><input type="number" name="manufacture_year[]" class="form-control" placeholder="연도" min="1990" max="2030" style="font-size:13px"/></td>
+    <td><input type="number" name="quantity[]" class="form-control" value="1" min="1" required style="font-size:13px"/></td>
+    <td>
+      <select name="condition[]" class="form-select" style="font-size:13px">
+        <option value="상">상</option>
+        <option value="중" selected>중</option>
+        <option value="하">하</option>
+      </select>
+    </td>
+    <td><input type="text" name="description[]" class="form-control" placeholder="특이사항" style="font-size:13px"/></td>
+    <td><button type="button" class="btn btn-outline-danger btn-remove" onclick="removeRow(${idx})"><i class="bi bi-trash"></i></button></td>
+  `;
+}
+
+function buildExtraRowHtml(idx) {
+  return `
+    <td colspan="8" style="padding:2px 12px 8px;background:#f0fbf5;border-top:none">
+      <div class="d-flex gap-2 flex-wrap align-items-end">
+        <div>
+          <div class="text-muted mb-1" style="font-size:11px">메모리 사양</div>
+          <input type="text" name="memory_spec[]" class="form-control form-control-sm" placeholder="예: 16GB DDR4" style="width:130px;font-size:12px"/>
+        </div>
+        <div>
+          <div class="text-muted mb-1" style="font-size:11px">저장장치 사양</div>
+          <input type="text" name="storage_spec[]" class="form-control form-control-sm" placeholder="예: 512GB SSD" style="width:130px;font-size:12px"/>
+        </div>
+        <div>
+          <div class="text-muted mb-1" style="font-size:11px"><i class="bi bi-shield-check me-1"></i>데이터 삭제</div>
+          <select name="data_wiped[]" class="form-select form-select-sm" style="width:120px;font-size:12px">
+            <option value="">미진행</option>
+            <option value="파쇄">파쇄완료</option>
+            <option value="블랑코">블랑코완료</option>
+          </select>
+        </div>
+        <div id="adapter_div_${idx}" style="display:none">
+          <div class="text-muted mb-1" style="font-size:11px"><i class="bi bi-plug me-1"></i>아답터</div>
+          <select name="has_adapter[]" class="form-select form-select-sm" style="width:100px;font-size:12px">
+            <option value="">미확인</option>
+            <option value="있음">있음</option>
+            <option value="없음">없음</option>
+          </select>
+        </div>
+      </div>
+    </td>
+  `;
+}
+
+function onCategoryChange(sel, idx) {
+  const cat = sel.value;
+  const extraRow = document.getElementById(`extra_${idx}`);
+  const adapterDiv = document.getElementById(`adapter_div_${idx}`);
+  if (cat === 'PC' || cat === '노트북') {
+    extraRow.style.display = '';
+    adapterDiv.style.display = cat === '노트북' ? '' : 'none';
+  } else {
+    extraRow.style.display = 'none';
+  }
+}
+
+function addRow() {
+  addRowFromData({});
+}
+
+function addRowFromData(data) {
+  const tbody = document.getElementById('assetBody');
+  document.getElementById('emptyMsg').style.display = 'none';
+
+  const idx = rowIndex;
+
+  const tr = document.createElement('tr');
+  tr.id = `row_${idx}`;
+  tr.innerHTML = buildMainRowHtml(idx);
+  tbody.appendChild(tr);
+
+  const extraTr = document.createElement('tr');
+  extraTr.id = `extra_${idx}`;
+  extraTr.style.display = 'none';
+  extraTr.innerHTML = buildExtraRowHtml(idx);
+  tbody.appendChild(extraTr);
+
+  // 메인 행 값 설정
+  const catSel = tr.querySelector('select[name="category[]"]');
+  const condSel = tr.querySelector('select[name="condition[]"]');
+  const inputs = tr.querySelectorAll('input');
+
+  if (data.category) { catSel.value = data.category; onCategoryChange(catSel, idx); }
+  if (data.model_name) inputs[0].value = data.model_name;
+  if (data.manufacturer) inputs[1].value = data.manufacturer;
+  if (data.manufacture_year) inputs[2].value = data.manufacture_year;
+  inputs[3].value = data.quantity || 1;
+  if (data.condition) condSel.value = data.condition;
+  if (data.description) inputs[4].value = data.description;
+
+  // 추가 사양 값 설정
+  if (data.memory_spec) extraTr.querySelector('input[name="memory_spec[]"]').value = data.memory_spec;
+  if (data.storage_spec) extraTr.querySelector('input[name="storage_spec[]"]').value = data.storage_spec;
+  if (data.data_wiped) extraTr.querySelector('select[name="data_wiped[]"]').value = data.data_wiped;
+  if (data.has_adapter) extraTr.querySelector('select[name="has_adapter[]"]').value = data.has_adapter;
+
+  rowIndex++;
+  updateCount();
+}
+
+function removeRow(idx) {
+  const main = document.getElementById(`row_${idx}`);
+  const extra = document.getElementById(`extra_${idx}`);
+  if (main) main.remove();
+  if (extra) extra.remove();
+  updateCount();
+  if (document.querySelectorAll('#assetBody tr[id^="row_"]').length === 0) {
+    document.getElementById('emptyMsg').style.display = '';
+  }
+}
+
+function updateCount() {
+  const cnt = document.querySelectorAll('#assetBody tr[id^="row_"]').length;
+  document.getElementById('itemCount').textContent = cnt;
+}
+
+function confirmSubmit() {
+  const rows = document.querySelectorAll('#assetBody tr[id^="row_"]').length;
+  if (rows === 0) {
+    alert('자산 항목을 1개 이상 입력해주세요.');
+    return false;
+  }
+  return confirm(`${rows}개 항목으로 신청서를 제출하시겠습니까?\n제출 후에는 수정이 불가능합니다.`);
+}
+
+function triggerExcelUpload() {
+  document.getElementById('excelFileInput').click();
+}
+
+async function handleExcelUpload(input) {
+  if (!input.files.length) return;
+  const file = input.files[0];
+  if (!file.name.toLowerCase().endsWith('.xlsx')) {
+    alert('엑셀 파일(.xlsx)만 업로드 가능합니다.');
+    input.value = '';
+    return;
+  }
+
+  const btn = document.getElementById('excelUploadBtn');
+  const originalHtml = btn.innerHTML;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>처리중...';
+  btn.disabled = true;
+
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const resp = await fetch('/branch/assets/parse-excel', { method: 'POST', body: formData });
+    const result = await resp.json();
+
+    if (result.error) {
+      showExcelResult('danger', `<i class="bi bi-x-circle me-2"></i>${result.error}`);
+      return;
+    }
+
+    result.items.forEach(item => addRowFromData(item));
+
+    if (result.items.length === 0 && result.errors.length === 0) {
+      showExcelResult('warning', '<i class="bi bi-exclamation-triangle me-2"></i>등록된 데이터가 없습니다. 파일에 내용이 있는지 확인해주세요.');
+      return;
+    }
+
+    let msg = `<i class="bi bi-check-circle me-2"></i><strong>${result.items.length}개</strong> 항목이 추가되었습니다.`;
+    let type = 'success';
+    if (result.errors.length > 0) {
+      type = 'warning';
+      msg += `<ul class="mb-0 mt-1">` + result.errors.map(e => `<li>${e}</li>`).join('') + `</ul>`;
+    }
+    showExcelResult(type, msg);
+
+  } catch {
+    showExcelResult('danger', '<i class="bi bi-x-circle me-2"></i>파일 처리 중 오류가 발생했습니다.');
+  } finally {
+    btn.innerHTML = originalHtml;
+    btn.disabled = false;
+    input.value = '';
+  }
+}
+
+function showExcelResult(type, message) {
+  const div = document.getElementById('excelResult');
+  div.style.display = '';
+  div.innerHTML = `
+    <div class="alert alert-${type} alert-dismissible mb-0 py-2 px-3" style="font-size:13px" role="alert">
+      ${message}
+      <button type="button" class="btn-close" onclick="document.getElementById('excelResult').style.display='none'"></button>
+    </div>`;
+}
+
+// 초기 1행 추가
+addRow();
+</script>
+{% endblock %}

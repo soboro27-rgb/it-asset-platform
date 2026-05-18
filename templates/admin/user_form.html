@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}계정 추가{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h4><i class="bi bi-person-plus-fill me-2" style="color:var(--mg)"></i>계정 추가</h4>
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb mb-0">
+      <li class="breadcrumb-item"><a href="/admin/users" style="color:var(--mg)">계정 관리</a></li>
+      <li class="breadcrumb-item active">새 계정</li>
+    </ol>
+  </nav>
+</div>
+
+<div class="row">
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header"><i class="bi bi-person-badge me-2"></i>계정 정보 입력</div>
+      <div class="card-body">
+        {% if error %}
+        <div class="alert alert-danger py-2" style="font-size:13px">
+          <i class="bi bi-exclamation-circle me-1"></i>{{ error }}
+        </div>
+        {% endif %}
+
+        <form method="post" action="/admin/users/new">
+          <div class="mb-3">
+            <label class="form-label fw-semibold" style="font-size:13px">아이디 (지점코드) *</label>
+            <input type="text" name="branch_code" class="form-control" style="font-size:13px"
+                   placeholder="예) MG011, WELFARE02" required/>
+            <div class="form-text">로그인 시 사용할 고유 ID. 중복 불가.</div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold" style="font-size:13px">비밀번호 *</label>
+            <input type="text" name="password" class="form-control" style="font-size:13px"
+                   placeholder="초기 비밀번호 입력" required/>
+            <div class="form-text">발급 후 담당자에게 전달하세요.</div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold" style="font-size:13px">지점명 / 이름 *</label>
+            <input type="text" name="branch_name" class="form-control" style="font-size:13px"
+                   placeholder="예) 서울강남지점, 주관사관리자2" required/>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold" style="font-size:13px">지역</label>
+            <input type="text" name="region" class="form-control" style="font-size:13px"
+                   placeholder="예) 서울, 부산, 전국"/>
+          </div>
+
+          <div class="mb-4">
+            <label class="form-label fw-semibold" style="font-size:13px">역할 *</label>
+            <select name="role" class="form-select" style="font-size:13px">
+              <option value="branch">지점 담당자 (branch)</option>
+              {% if session.get('role') == 'coretail' %}
+              <option value="welfare">주관사 관리자 (welfare)</option>
+              <option value="coretail">운영사 관리자 (coretail)</option>
+              {% endif %}
+            </select>
+            {% if session.get('role') == 'welfare' %}
+            <div class="form-text text-warning">주관사 계정은 지점 담당자 계정만 생성 가능합니다.</div>
+            {% endif %}
+          </div>
+
+          <div class="d-flex gap-2">
+            <a href="/admin/users" class="btn btn-outline-secondary">취소</a>
+            <button type="submit" class="btn btn-mg">
+              <i class="bi bi-person-plus me-1"></i>계정 생성
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-6">
+    <div class="card border-0" style="background:#f8f9fa">
+      <div class="card-body">
+        <div class="fw-semibold mb-2" style="font-size:13px"><i class="bi bi-info-circle me-1"></i>역할 안내</div>
+        <table class="table table-sm" style="font-size:12px">
+          <tr><td><span class="badge bg-success">branch</span></td><td>지점 담당자 — IT자산 신청, 일정·금액 확인</td></tr>
+          <tr><td><span class="badge bg-primary">welfare</span></td><td>주관사 관리자 — 신청 열람, 입금 완료 처리</td></tr>
+          <tr><td><span class="badge" style="background:#6a1b9a">coretail</span></td><td>운영사 관리자 — 승인, 일정, 수거, 금액 산정</td></tr>
+        </table>
+        <div class="mt-3">
+          <a href="/admin/users/bulk" class="btn btn-outline-secondary btn-sm w-100">
+            <i class="bi bi-file-earmark-excel me-1"></i>여러 계정을 한 번에 등록하려면 → 엑셀 대량 등록
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

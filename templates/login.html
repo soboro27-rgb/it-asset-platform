@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>로그인 - IT자산 매각 플랫폼</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet"/>
+  <style>
+    body { background: linear-gradient(135deg, #003d1f 0%, #005B30 60%, #007a40 100%); min-height: 100vh; display: flex; align-items: center; justify-content: center; font-family: 'Malgun Gothic', sans-serif; }
+    .login-wrap { width: 420px; }
+    .login-card { background: #fff; border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,.3); overflow: hidden; }
+    .login-header { background: #005B30; padding: 32px 36px 24px; text-align: center; }
+    .login-header .logo-icon { font-size: 40px; color: #fff; }
+    .login-header h1 { color: #fff; font-size: 17px; font-weight: 700; margin: 10px 0 4px; }
+    .login-header p { color: rgba(255,255,255,.65); font-size: 12px; margin: 0; }
+    .login-body { padding: 32px 36px; }
+    .form-label { font-size: 13px; font-weight: 600; color: #444; }
+    .form-control { font-size: 14px; padding: 10px 14px; border-radius: 8px; border-color: #dde2e9; }
+    .form-control:focus { border-color: #005B30; box-shadow: 0 0 0 3px rgba(0,91,48,.1); }
+    .btn-login { background: #005B30; color: #fff; border: none; border-radius: 8px; width: 100%; padding: 12px; font-size: 15px; font-weight: 600; }
+    .btn-login:hover { background: #007a40; color: #fff; }
+    .role-badges { display: flex; gap: 8px; margin-top: 20px; justify-content: center; }
+    .role-badge { font-size: 11px; padding: 4px 12px; border-radius: 20px; border: 1px solid #ddd; color: #666; }
+    .footer-info { text-align: center; margin-top: 20px; font-size: 11px; color: rgba(255,255,255,.5); }
+    .footer-info span { color: rgba(255,255,255,.8); font-weight: 600; }
+  </style>
+</head>
+<body>
+<div class="login-wrap">
+  <div class="login-card">
+    <div class="login-header">
+      <div class="logo-icon"><i class="bi bi-building-check"></i></div>
+      <h1>IT자산 매각 플랫폼</h1>
+      <p>사업주관: 주관사 &nbsp;|&nbsp; 개발: 매입사</p>
+    </div>
+    <div class="login-body">
+      {% if error %}
+      <div class="alert alert-danger d-flex align-items-center gap-2 py-2 px-3 mb-3" style="font-size:13px;border-radius:8px">
+        <i class="bi bi-exclamation-circle-fill"></i> {{ error }}
+      </div>
+      {% endif %}
+      <form method="post" action="/login">
+        <div class="mb-3">
+          <label class="form-label">지점코드 / 관리자 ID</label>
+          <div class="input-group">
+            <span class="input-group-text" style="background:#f8f9fa;border-color:#dde2e9"><i class="bi bi-person-badge"></i></span>
+            <input type="text" name="branch_code" class="form-control" placeholder="예) MG001, WELFARE01" required autofocus/>
+          </div>
+        </div>
+        <div class="mb-4">
+          <label class="form-label">비밀번호</label>
+          <div class="input-group">
+            <span class="input-group-text" style="background:#f8f9fa;border-color:#dde2e9"><i class="bi bi-lock-fill"></i></span>
+            <input type="password" name="password" class="form-control" placeholder="비밀번호를 입력하세요" required/>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-login">
+          <i class="bi bi-box-arrow-in-right me-2"></i>로그인
+        </button>
+      </form>
+      <div class="role-badges">
+        <span class="role-badge"><i class="bi bi-building me-1"></i>지점 담당자</span>
+        <span class="role-badge" style="border-color:#1565c0;color:#1565c0"><i class="bi bi-shield-check me-1"></i>주관사</span>
+        <span class="role-badge" style="border-color:#6a1b9a;color:#6a1b9a"><i class="bi bi-gear me-1"></i>매입사</span>
+      </div>
+    </div>
+  </div>
+  <div style="text-align:center; margin-top: 16px;">
+    <a href="/process" style="color:rgba(255,255,255,.7); font-size:12px; text-decoration:none; display:inline-flex; align-items:center; gap:5px; border:1px solid rgba(255,255,255,.2); padding:7px 18px; border-radius:20px; transition:all .2s;"
+       onmouseover="this.style.background='rgba(255,255,255,.1)'; this.style.color='#fff'"
+       onmouseout="this.style.background=''; this.style.color='rgba(255,255,255,.7)'">
+      <i class="bi bi-play-circle"></i> 플랫폼 업무 프로세스 소개
+    </a>
+  </div>
+  <div class="footer-info" style="margin-top:12px;">
+    Powered by <span>매입사</span> &nbsp;|&nbsp; IT자산 매각 서비스
+  </div>
+</div>
+</body>
+</html>
