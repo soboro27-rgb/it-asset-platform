@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Request, Depends
-from fastapi.responses import RedirectResponse, HTMLResponse, StreamingResponse, FileResponse
+from fastapi.responses import RedirectResponse, HTMLResponse, StreamingResponse, FileResponse, JSONResponse
 from sqlalchemy.orm import Session
 from database import get_db
 import models
 from auth import require_admin
-from config import templates
+from config import templates, CATEGORIES
 from datetime import datetime
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
@@ -15,6 +15,7 @@ import os
 import base64
 from pathlib import Path
 from stamp_data import STAMP_B64
+from pricing import load_pricing_config, DEFAULT_GRADE, DEFAULT_AGE, DEFAULT_BASE
 
 router = APIRouter()
 
@@ -956,3 +957,69 @@ def complete_payment(request: Request, app_id: int, db: Session = Depends(get_db
         db.commit()
 
     return RedirectResponse(f"/admin/applications/{app_id}", status_code=302)
+
+
+# ── 견적 로직 설정 ─────────────────────────────────────────────────
+
+@router.get("/pricing-settings", response_class=HTMLResponse)
+def pricing_settings_page(request: Request, db: Session = Depends(get_db)):
+    user, redir = _check(request)
+    if redir:
+        return redir
+    if user["role"] != "coretail":
+        return RedirectResponse("/admin/dashboard", status_code=302)
+
+    cfg = load_pricing_config(db)
+    return templates.TemplateResponse(
+        "admin/pricing_settings.html",
+        {
+            "request": request,
+            "session": request.session,
+            "cfg": cfg,
+            "categories": CATEGORIES,
+            "saved": request.query_params.get("saved"),
+        },
+    )
+
+
+@router.post("/pricing-settings")
+async def save_pricing_settings(request: Request, db: Session = Depends(get_db)):
+    user, redir = _check(request)
+    if redir:
+        return redir
+    if user["role"] != "coretail":
+        return RedirectResponse("/admin/dashboard", status_code=302)
+
+    form = await request.form()
+
+    def _set(key: str, value: str):
+        row = db.query(models.SystemConfig).filter(models.SystemConfig.key == key).first()
+        if row:
+            row.value = value
+            row.updated_at = datetime.now()
+        else:
+            db.add(models.SystemConfig(key=key, value=value, updated_at=datetime.now()))
+
+    for g in ("상", "중", "하"):
+        val = form.get(f"grade_{g}", "")
+        try:
+            _set(f"pricing_grade_{g}", str(round(max(0.0, min(2.0, float(val))), 4)))
+        except (ValueError, TypeError):
+            pass
+
+    for i in range(7):
+        val = form.get(f"age_{i}", "")
+        try:
+            _set(f"pricing_age_{i}", str(round(max(0.0, min(2.0, float(val))), 4)))
+        except (ValueError, TypeError):
+            pass
+
+    for cat in CATEGORIES:
+        val = form.get(f"base_{cat}", "")
+        try:
+            _set(f"pricing_base_{cat}", str(max(0, int(float(val)))))
+        except (ValueError, TypeError):
+            pass
+
+    db.commit()
+    return RedirectResponse("/admin/pricing-settings?saved=1", status_code=302)
