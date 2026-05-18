@@ -7,12 +7,47 @@ from database import get_db
 import models
 from auth import require_branch
 from config import templates
-from datetime import datetime
+from datetime import datetime, date as _date
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 from io import BytesIO
 from pricing import estimate_unit_price, estimate_items
+
+
+def _extract_year(raw) -> int | None:
+    """취득일/제조연도 값에서 연도 추출.
+    지원 형식: datetime객체, YYYY-MM-DD, YYYY/MM/DD, YYYY.MM.DD, YYYYMMDD, YYYY
+    """
+    if raw is None:
+        return None
+    if isinstance(raw, (datetime, _date)):
+        return raw.year
+    raw_str = str(raw).strip()
+    if not raw_str:
+        return None
+    # 구분자 있는 날짜 형식
+    for sep in ("-", "/", "."):
+        if sep in raw_str:
+            try:
+                year = int(raw_str.split(sep)[0])
+                if 1990 <= year <= 2030:
+                    return year
+            except (ValueError, IndexError):
+                pass
+    # YYYYMMDD (8자리)
+    if len(raw_str) == 8 and raw_str.isdigit():
+        year = int(raw_str[:4])
+        if 1990 <= year <= 2030:
+            return year
+    # 연도만 (4자리)
+    try:
+        year = int(raw_str)
+        if 1990 <= year <= 2030:
+            return year
+    except ValueError:
+        pass
+    return None
 
 
 def _make_thin_border():
@@ -101,10 +136,7 @@ async def create_application(request: Request, db: Session = Depends(get_db)):
     for i, cat in enumerate(categories):
         if not cat:
             continue
-        try:
-            year = int(years[i]) if i < len(years) and years[i] else None
-        except ValueError:
-            year = None
+        year = _extract_year(years[i]) if i < len(years) and years[i] else None
         try:
             qty = int(quantities[i]) if i < len(quantities) and quantities[i] else 1
         except ValueError:
@@ -293,11 +325,11 @@ def download_asset_template(request: Request):
     header_fill = PatternFill(start_color="005B30", end_color="005B30", fill_type="solid")
     header_font = Font(color="FFFFFF", bold=True, size=11)
 
-    headers = ["카테고리*", "모델명", "제조사", "제조연도", "수량*", "상태", "비고",
+    # 취득일(D열)은 날짜 or 연도 형식 모두 허용
+    headers = ["카테고리*", "모델명", "제조사", "취득일", "수량*", "상태", "비고",
                "메모리사양", "저장장치사양", "데이터삭제", "아답터"]
-    col_widths = [16, 22, 16, 12, 8, 8, 24, 16, 16, 14, 10]
+    col_widths = [16, 22, 16, 14, 8, 8, 24, 16, 16, 14, 10]
 
-    pc_nb_fill = PatternFill(start_color="E8F5E9", end_color="E8F5E9", fill_type="solid")
     for col_idx, (header, width) in enumerate(zip(headers, col_widths), 1):
         cell = ws.cell(row=1, column=col_idx, value=header)
         cell.font = header_font
@@ -312,9 +344,9 @@ def download_asset_template(request: Request):
 
     example_fill = PatternFill(start_color="F0F7F2", end_color="F0F7F2", fill_type="solid")
     examples = [
-        ["PC", "ThinkPad X1 Carbon", "Lenovo", 2020, 2, "중", "배터리 불량", "16GB DDR4", "512GB SSD", "파쇄완료", ""],
-        ["노트북", "EliteBook 840 G6", "HP", 2019, 1, "하", "화면 미세 흠집", "8GB DDR4", "256GB SSD", "블랑코완료", "있음"],
-        ["프린터", "LaserJet Pro M404n", "HP", 2021, 3, "상", "", "", "", "", ""],
+        ["PC", "ThinkPad X1 Carbon", "Lenovo", "2020-03-15", 2, "중", "배터리 불량", "16GB DDR4", "512GB SSD", "파쇄완료", ""],
+        ["노트북", "EliteBook 840 G6", "HP", "2019-07-01", 1, "하", "화면 미세 흠집", "8GB DDR4", "256GB SSD", "블랑코완료", "있음"],
+        ["프린터", "LaserJet Pro M404n", "HP", "2021", 3, "상", "", "", "", "", ""],
     ]
     for row_idx, row_data in enumerate(examples, 2):
         for col_idx, value in enumerate(row_data, 1):
@@ -326,9 +358,9 @@ def download_asset_template(request: Request):
     ws2["A1"].font = Font(bold=True, size=13)
     notes = [
         ("카테고리*", f"필수. 다음 중 하나: {', '.join(VALID_CATEGORIES)}"),
-        ("모델명", "장비 모델명 (예: ThinkPad X1 Carbon)"),
+        ("모델명", "장비 모델명 (예: ThinkPad X1 Carbon). 가견적 정확도 향상에 도움."),
         ("제조사", "제조사명 (예: Lenovo, HP, Samsung). 비워도 됨."),
-        ("제조연도", "4자리 연도 (예: 2020). 비워도 됨."),
+        ("취득일", "구매·취득 일자. YYYY-MM-DD / YYYY/MM/DD / YYYYMMDD / YYYY 형식 모두 허용. 가견적 연식 계산에 사용."),
         ("수량*", "필수. 1 이상의 정수. 비우면 1로 처리."),
         ("상태", "상/중/하 중 하나. 비우면 '중' 처리."),
         ("비고", "특이사항 (예: 배터리 불량, 화면 흠집 등). 비워도 됨."),
@@ -342,7 +374,7 @@ def download_asset_template(request: Request):
         ws2[f"A{i}"].font = Font(bold=True)
         ws2[f"B{i}"] = desc
     ws2.column_dimensions["A"].width = 16
-    ws2.column_dimensions["B"].width = 65
+    ws2.column_dimensions["B"].width = 70
 
     output = BytesIO()
     wb.save(output)
@@ -395,10 +427,10 @@ async def parse_asset_excel(request: Request, file: UploadFile = File(...), db: 
         category = str(row[0]).strip() if row[0] is not None else ""
         model_name = str(row[1]).strip() if row[1] is not None else ""
         manufacturer = str(row[2]).strip() if row[2] is not None else ""
-        manufacture_year_raw = row[3]
-        quantity_raw = row[4]
-        condition = str(row[5]).strip() if row[5] is not None else ""
-        description = str(row[6]).strip() if row[6] is not None else ""
+        acquisition_date_raw = row[3] if len(row) > 3 else None   # 취득일 (날짜 or 연도)
+        quantity_raw = row[4] if len(row) > 4 else None
+        condition = str(row[5]).strip() if len(row) > 5 and row[5] is not None else ""
+        description = str(row[6]).strip() if len(row) > 6 and row[6] is not None else ""
         memory_spec = str(row[7]).strip() if len(row) > 7 and row[7] is not None else ""
         storage_spec = str(row[8]).strip() if len(row) > 8 and row[8] is not None else ""
         data_wiped_raw = str(row[9]).strip() if len(row) > 9 and row[9] is not None else ""
@@ -411,15 +443,10 @@ async def parse_asset_excel(request: Request, file: UploadFile = File(...), db: 
             errors.append(f"{row_num}행: 카테고리 '{category}'가 올바르지 않습니다. ({', '.join(VALID_CATEGORIES)} 중 하나여야 합니다)")
             continue
 
-        manufacture_year = None
-        if manufacture_year_raw is not None and str(manufacture_year_raw).strip():
-            try:
-                manufacture_year = int(manufacture_year_raw)
-                if not (1990 <= manufacture_year <= 2030):
-                    errors.append(f"{row_num}행: 제조연도 {manufacture_year}이 유효하지 않습니다. (1990~2030)")
-                    manufacture_year = None
-            except (ValueError, TypeError):
-                errors.append(f"{row_num}행: 제조연도가 올바른 숫자가 아닙니다.")
+        # 취득일 → 연도 추출 (가견적 C2 연식 계수 계산에 사용)
+        manufacture_year = _extract_year(acquisition_date_raw)
+        if acquisition_date_raw is not None and str(acquisition_date_raw).strip() and manufacture_year is None:
+            errors.append(f"{row_num}행: 취득일 '{acquisition_date_raw}' 형식을 인식할 수 없습니다. (YYYY-MM-DD / YYYY/MM/DD / YYYY 형식 사용)")
 
         quantity = 1
         if quantity_raw is not None and str(quantity_raw).strip():

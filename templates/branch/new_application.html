@@ -74,7 +74,7 @@
               <th class="ps-3" style="width:140px">카테고리 *</th>
               <th style="min-width:130px">모델명</th>
               <th style="min-width:100px">제조사</th>
-              <th style="width:80px">제조연도</th>
+              <th style="width:90px">취득일</th>
               <th style="width:70px">수량 *</th>
               <th style="width:80px">상태 *</th>
               <th style="min-width:130px">비고</th>
@@ -163,7 +163,7 @@ function buildMainRowHtml(idx) {
     </td>
     <td><input type="text" name="model_name[]" class="form-control" placeholder="모델명" style="font-size:13px" oninput="scheduleEstimate()"/></td>
     <td><input type="text" name="manufacturer[]" class="form-control" placeholder="제조사" style="font-size:13px"/></td>
-    <td><input type="number" name="manufacture_year[]" class="form-control" placeholder="연도" min="1990" max="2030" style="font-size:13px" oninput="scheduleEstimate()"/></td>
+    <td><input type="text" name="manufacture_year[]" class="form-control" placeholder="예: 2021-03-15" style="font-size:12px" oninput="scheduleEstimate()"/></td>
     <td><input type="number" name="quantity[]" class="form-control" value="1" min="1" required style="font-size:13px" oninput="scheduleEstimate()"/></td>
     <td>
       <select name="condition[]" class="form-select" style="font-size:13px" onchange="scheduleEstimate()">

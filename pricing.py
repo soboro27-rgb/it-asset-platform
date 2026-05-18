@@ -29,7 +29,14 @@ CATEGORY_BASE_PRICES = {
 def get_age_coefficient(manufacture_year) -> float:
     if manufacture_year is None:
         return 0.40
-    age = max(0, datetime.now().year - int(manufacture_year))
+    # 날짜 문자열(YYYY-MM-DD 등)에서 연도 추출
+    try:
+        year_val = int(str(manufacture_year).split("-")[0].split("/")[0].split(".")[0].strip())
+    except (ValueError, AttributeError):
+        return 0.40
+    if not (1990 <= year_val <= 2030):
+        return 0.40
+    age = max(0, datetime.now().year - year_val)
     return AGE_TABLE[min(age, 6)]
 
 
