@@ -13,6 +13,9 @@
   #estimateCard { border: 2px solid #198754; border-radius: 8px; }
   #estimateTotal { font-size: 22px; font-weight: 700; color: #198754; }
   .est-label { font-size: 11px; color: #6c757d; }
+  .match-row td { background: #f0fbf5; font-size: 11px; color: #198754; padding: 2px 12px 6px; border-top: none; }
+  .match-row.warn td { background: #fff8e1; color: #856404; }
+  .gen-badge { display:inline-block; background:#dbeafe; color:#1e40af; border-radius:4px; padding:1px 6px; font-size:10px; font-weight:600; margin-left:4px; }
 </style>
 {% endblock %}
 
@@ -161,7 +164,7 @@ function buildMainRowHtml(idx) {
         ${CATEGORIES.map(c => `<option value="${c}">${c}</option>`).join('')}
       </select>
     </td>
-    <td><input type="text" name="model_name[]" class="form-control" placeholder="모델명" style="font-size:13px" oninput="scheduleEstimate()"/></td>
+    <td><input type="text" name="model_name[]" class="form-control" placeholder="모델명" style="font-size:13px" oninput="scheduleEstimate();scheduleModelLookup(this,${idx})"/></td>
     <td><input type="text" name="manufacturer[]" class="form-control" placeholder="제조사" style="font-size:13px"/></td>
     <td><input type="text" name="manufacture_year[]" class="form-control" placeholder="예: 2021-03-15" style="font-size:12px" oninput="scheduleEstimate()"/></td>
     <td><input type="number" name="quantity[]" class="form-control" value="1" min="1" required style="font-size:13px" oninput="scheduleEstimate()"/></td>
@@ -244,6 +247,13 @@ function addRowFromData(data) {
   extraTr.innerHTML = buildExtraRowHtml(idx);
   tbody.appendChild(extraTr);
 
+  const matchTr = document.createElement('tr');
+  matchTr.id = `match_${idx}`;
+  matchTr.className = 'match-row';
+  matchTr.style.display = 'none';
+  matchTr.innerHTML = `<td colspan="9" id="match_cell_${idx}"></td>`;
+  tbody.appendChild(matchTr);
+
   const catSel = tr.querySelector('select[name="category[]"]');
   const condSel = tr.querySelector('select[name="condition[]"]');
   const inputs = tr.querySelectorAll('input');
@@ -278,8 +288,10 @@ function addRowFromData(data) {
 function removeRow(idx) {
   const main = document.getElementById(`row_${idx}`);
   const extra = document.getElementById(`extra_${idx}`);
+  const match = document.getElementById(`match_${idx}`);
   if (main) main.remove();
   if (extra) extra.remove();
+  if (match) match.remove();
   updateCount();
   if (document.querySelectorAll('#assetBody tr[id^="row_"]').length === 0) {
     document.getElementById('emptyMsg').style.display = '';
@@ -443,6 +455,75 @@ function showExcelResult(type, message) {
       ${message}
       <button type="button" class="btn-close" onclick="document.getElementById('excelResult').style.display='none'"></button>
     </div>`;
+}
+
+// ── 모델명 자동 조회 ──────────────────────────────────────────────
+const modelLookupTimers = {};
+
+function scheduleModelLookup(input, idx) {
+  clearTimeout(modelLookupTimers[idx]);
+  const val = input.value.trim();
+  const matchTr = document.getElementById(`match_${idx}`);
+  if (val.length < 5) {
+    if (matchTr) matchTr.style.display = 'none';
+    return;
+  }
+  modelLookupTimers[idx] = setTimeout(() => runModelLookup(input, idx), 800);
+}
+
+async function runModelLookup(input, idx) {
+  const val = input.value.trim();
+  if (val.length < 5) return;
+
+  const row = document.getElementById(`row_${idx}`);
+  const catSel = row?.querySelector('select[name="category[]"]');
+  const category = catSel?.value || '';
+
+  const matchTr = document.getElementById(`match_${idx}`);
+  const matchCell = document.getElementById(`match_cell_${idx}`);
+  if (!matchTr || !matchCell) return;
+
+  matchCell.textContent = '검색 중...';
+  matchTr.style.display = '';
+  matchTr.className = 'match-row';
+
+  try {
+    const params = new URLSearchParams({ q: val, category });
+    const resp = await fetch(`/branch/assets/model-lookup?${params}`);
+    const data = await resp.json();
+
+    if (data.error || (!data.cpu && !data.ram && !data.storage)) {
+      matchTr.style.display = 'none';
+      return;
+    }
+
+    // 자동 채우기: 메모리/저장장치 사양
+    const extraRow = document.getElementById(`extra_${idx}`);
+    if (extraRow && extraRow.style.display !== 'none') {
+      if (data.ram) {
+        const memInput = extraRow.querySelector('input[name="memory_spec[]"]');
+        if (memInput && !memInput.value) memInput.value = data.ram;
+      }
+      if (data.storage) {
+        const stgInput = extraRow.querySelector('input[name="storage_spec[]"]');
+        if (stgInput && !stgInput.value) stgInput.value = data.storage;
+        scheduleEstimate();
+      }
+    }
+
+    // 결과 표시
+    let html = '<i class="bi bi-cpu me-1"></i>';
+    if (data.gen_label) html += `<strong>${data.gen_label}</strong>`;
+    else if (data.cpu) html += `<strong>${data.cpu}</strong>`;
+    if (data.ram) html += `&nbsp;&nbsp;RAM: <strong>${data.ram}</strong>`;
+    if (data.storage) html += `&nbsp;&nbsp;SSD: <strong>${data.storage}</strong>`;
+    html += '&nbsp;&nbsp;<span style="color:#6c757d">자동감지</span>';
+
+    matchCell.innerHTML = html;
+    matchTr.style.display = '';
+  } catch {
+    matchTr.style.display = 'none';
+  }
 }
 
 // 초기 1행 추가

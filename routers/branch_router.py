@@ -1,4 +1,8 @@
 import os
+import re
+import json
+import urllib.request
+import urllib.parse
 from pathlib import Path
 from fastapi import APIRouter, Request, Depends, UploadFile, File
 from fastapi.responses import RedirectResponse, HTMLResponse, StreamingResponse, JSONResponse, FileResponse
@@ -404,6 +408,101 @@ async def estimate_asset_prices(request: Request, db: Session = Depends(get_db))
     items = data.get("items", [])
     result = estimate_items(items, db=db)
     return JSONResponse(result)
+
+
+def _strip_html(text: str) -> str:
+    text = re.sub(r'<[^>]+>', ' ', text)
+    text = re.sub(r'&[a-z]+;', ' ', text)
+    return re.sub(r'\s+', ' ', text).strip()
+
+def _extract_cpu(text: str) -> str | None:
+    m = re.search(r'\bi([3579])[- ]?(\d{3,5}[a-zA-Z0-9]*)', text, re.IGNORECASE)
+    if m:
+        return f"i{m.group(1)}-{m.group(2).upper()}"
+    m = re.search(r'(?:코어\s*|인텔\s*)?i([3579])[- ]?\s*(\d+)세대', text, re.IGNORECASE)
+    if m:
+        return f"i{m.group(1)}({m.group(2)}세대)"
+    return None
+
+def _extract_ram(text: str) -> str | None:
+    m = re.search(r'\b(\d+)\s*GB(?:\s*(?:LPDDR|DDR)\d*[Xx]?\d*)?', text, re.IGNORECASE)
+    if m:
+        val = int(m.group(1))
+        if val <= 128:
+            return f"{val}GB"
+    return None
+
+def _extract_storage(text: str) -> str | None:
+    m = re.search(r'\b(\d+)\s*(TB|GB)\s*(?:SSD|NVMe|HDD|eMMC)', text, re.IGNORECASE)
+    if m:
+        val, unit = int(m.group(1)), m.group(2).upper()
+        if unit == "TB":
+            return f"{val}TB SSD"
+        if val >= 128:
+            return f"{val}GB SSD"
+    return None
+
+def _parse_intel_gen(model_num: str) -> int | None:
+    digits = re.sub(r'[^0-9]', '', model_num)
+    if len(digits) >= 5:
+        return int(digits[:2])
+    if len(digits) == 4:
+        return int(digits[0])
+    if len(digits) == 3:
+        return int(digits[0])
+    return None
+
+def _cpu_generation_label(cpu_str: str) -> str | None:
+    m = re.search(r'i([3579]).*?\((\d+)세대\)', cpu_str, re.IGNORECASE)
+    if m:
+        return f"i{m.group(1)} {m.group(2)}세대"
+    m = re.search(r'i([3579])[- ]?(\d{3,5}[a-zA-Z0-9]*)', cpu_str, re.IGNORECASE)
+    if m:
+        gen = _parse_intel_gen(m.group(2))
+        if gen and 1 <= gen <= 20:
+            return f"i{m.group(1)} {gen}세대"
+    return None
+
+
+@router.get("/assets/model-lookup")
+async def model_lookup(request: Request, q: str = "", category: str = ""):
+    user, redir = _check(request)
+    if redir:
+        return JSONResponse({"error": "로그인이 필요합니다."}, status_code=401)
+
+    if len(q.strip()) < 3:
+        return JSONResponse({"error": "모델명을 3자 이상 입력하세요."}, status_code=400)
+
+    client_id = os.environ.get("NAVER_CLIENT_ID", "")
+    client_secret = os.environ.get("NAVER_CLIENT_SECRET", "")
+
+    if not client_id or not client_secret:
+        return JSONResponse({"error": "NAVER API 키가 설정되지 않았습니다."}, status_code=503)
+
+    query = urllib.parse.quote(f"{q.strip()} CPU 스펙 사양")
+    url = f"https://openapi.naver.com/v1/search/webkr.json?query={query}&display=5"
+    req = urllib.request.Request(url, headers={
+        "X-Naver-Client-Id": client_id,
+        "X-Naver-Client-Secret": client_secret,
+    })
+    try:
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+    except Exception:
+        return JSONResponse({"cpu": None, "ram": None, "storage": None, "gen_label": None})
+
+    texts = []
+    for item in data.get("items", []):
+        texts.append(_strip_html(item.get("title", "")))
+        texts.append(_strip_html(item.get("description", "")))
+    combined = " ".join(texts)
+
+    cpu = _extract_cpu(combined)
+    ram = _extract_ram(combined)
+    storage = _extract_storage(combined)
+    gen_label = _cpu_generation_label(cpu) if cpu else None
+
+    return JSONResponse({"cpu": cpu, "ram": ram, "storage": storage, "gen_label": gen_label})
 
 
 @router.post("/assets/parse-excel")

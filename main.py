@@ -1,4 +1,15 @@
 import os
+from pathlib import Path as _Path
+
+# .env 파일 수동 로드 (python-dotenv 미설치 환경 대응)
+_env_path = _Path(__file__).parent / ".env"
+if _env_path.exists():
+    for _line in _env_path.read_text(encoding="utf-8").splitlines():
+        _line = _line.strip()
+        if _line and not _line.startswith("#") and "=" in _line:
+            _k, _v = _line.split("=", 1)
+            os.environ.setdefault(_k.strip(), _v.strip())
+
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
