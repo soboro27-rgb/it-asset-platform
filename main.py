@@ -1,15 +1,4 @@
 import os
-from pathlib import Path as _Path
-
-# .env 파일 수동 로드 (python-dotenv 미설치 환경 대응)
-_env_path = _Path(__file__).parent / ".env"
-if _env_path.exists():
-    for _line in _env_path.read_text(encoding="utf-8").splitlines():
-        _line = _line.strip()
-        if _line and not _line.startswith("#") and "=" in _line:
-            _k, _v = _line.split("=", 1)
-            os.environ.setdefault(_k.strip(), _v.strip())
-
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -94,20 +83,36 @@ try:
 except Exception as _e:
     print(f"Migration warning (wipe tables): {_e}")
 
-# Migration: add estimated_price columns (asset_price_refs is created by create_all)
+# Migration: settlements 테이블에 운영사 수수료 컬럼 추가
 try:
-    _app_cols = [c['name'] for c in _sa_inspect(engine).get_columns('applications')]
-    _item_cols = [c['name'] for c in _sa_inspect(engine).get_columns('asset_items')]
+    _scols = [c['name'] for c in _sa_inspect(engine).get_columns('settlements')]
+    _snew = [
+        ("operator_fee_rate",  "FLOAT DEFAULT 0.0"),
+        ("welfare_view_amount", "FLOAT DEFAULT 0.0"),
+        ("buyer_paid",         "BOOLEAN DEFAULT FALSE"),
+        ("buyer_paid_at",      "TIMESTAMP"),
+        ("operator_paid",      "BOOLEAN DEFAULT FALSE"),
+        ("operator_paid_at",   "TIMESTAMP"),
+    ]
     with engine.connect() as _c:
-        if 'estimated_price' not in _app_cols:
-            _c.execute(text("ALTER TABLE applications ADD COLUMN estimated_price FLOAT DEFAULT 0.0"))
-        if 'estimated_unit_price' not in _item_cols:
+        for _n, _d in _snew:
+            if _n not in _scols:
+                _c.execute(text(f"ALTER TABLE settlements ADD COLUMN {_n} {_d}"))
+        _c.commit()
+except Exception as _e:
+    print(f"Migration warning (settlements): {_e}")
+
+# Migration: asset_items 에 estimated_unit_price 추가
+try:
+    _icols = [c['name'] for c in _sa_inspect(engine).get_columns('asset_items')]
+    with engine.connect() as _c:
+        if 'estimated_unit_price' not in _icols:
             _c.execute(text("ALTER TABLE asset_items ADD COLUMN estimated_unit_price FLOAT DEFAULT 0.0"))
         _c.commit()
 except Exception as _e:
-    print(f"Migration warning (estimated_price): {_e}")
+    print(f"Migration warning (asset_items estimated): {_e}")
 
-app = FastAPI(title="IT 매각자산 플랫폼")
+app = FastAPI(title="IT자산 매각 플랫폼")
 app.add_middleware(SessionMiddleware, secret_key=os.getenv("SECRET_KEY", "mgit-saemaul-2024-secret"))
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"

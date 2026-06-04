@@ -12,8 +12,10 @@ def migrate():
     with engine.connect() as conn:
         from sqlalchemy import text
         for col, col_type in [
-            ("welfare_fee_rate", "FLOAT DEFAULT 0.0"),
-            ("branch_total_amount", "FLOAT DEFAULT 0.0"),
+            ("welfare_fee_rate",   "FLOAT DEFAULT 0.0"),
+            ("branch_total_amount","FLOAT DEFAULT 0.0"),
+            ("operator_fee_rate",  "FLOAT DEFAULT 0.0"),
+            ("welfare_view_amount","FLOAT DEFAULT 0.0"),
         ]:
             try:
                 conn.execute(text(f"ALTER TABLE settlements ADD COLUMN {col} {col_type}"))
@@ -29,6 +31,21 @@ def migrate():
         user.password_hash = hash_password("11111111")
         db.commit()
         print("  [migrate] CORETAIL01 비밀번호 업데이트 완료")
+
+    # 운영사 계정 보장 (없을 경우에만 생성)
+    op = db.query(models.User).filter(models.User.branch_code == "OPERATOR01").first()
+    if not op:
+        from datetime import datetime
+        db.add(models.User(
+            branch_code="OPERATOR01",
+            password_hash=hash_password("11111111"),
+            branch_name="운영사",
+            region="전국",
+            role="operator",
+            created_at=datetime.now(),
+        ))
+        db.commit()
+        print("  [migrate] OPERATOR01 계정 생성 완료")
     db.close()
 
 
@@ -101,57 +118,37 @@ def init():
     print("  CORETAIL01 / Coretail!2024")
     print("=" * 50)
 
+    seed_price_refs()
+
+
+PRICE_REF_DATA = [
+    ("PC", "DB400S3A",     "Intel Core i5-4590(3.3GHz)",                                   "4GB DDR3 1600",    "Windows 7 Professional",        40_000),
+    ("PC", "DB400S6B",     "Intel Core i5-6500(3.2GHz)",                                   "4GB DDR4 2133MHz", "Windows 7 Professional(32bit)", 60_000),
+    ("PC", "DB400S6(7)B",  "Intel Core i5-6500(3.20G)",                                    "4GB DDR4 2133MHz", "Windows 7 Professional(32bit)", 60_000),
+    ("PC", "DB400S7B",     "Intel Core i5 6600(3.2GHz)",                                   "4GB DDR4 2400MHz", "Windows 10 Professional(64bit)",60_000),
+    ("PC", "DB400S9A",     "Intel Core i5-9400(2.9GHz ~ 4.1GHz)",                          "8GB DDR4 2666MHz", "Windows 10 Professional(64bit)",200_000),
+    ("PC", "DB400SDA",     "Intel Core i5-11400",                                           "8GB DDR4 2666MHz", "Windows 10 Professional(64bit)",320_000),
+    ("PC", "DB400SDA",     "Intel Core i5-12400 Processor(2.6GHz, 12MB)",                  "8GB DDR4",         "Windows 10 Pro 64bit",          360_000),
+    ("PC", "DB400SEA-Z0A/R","Intel Core i7-12700 Processor(2.1GHz up to 4.9GHz 25MB L3)", "16GB DDR4",        "Windows 10 Pro 64bit",          520_000),
+]
+
 
 def seed_price_refs():
-    """ITAD 시스템 기준 주요 모델 가견적 기준가 초기 데이터 (없을 때만 삽입)"""
+    """가견적 기준가 초기 데이터 삽입 (없을 때만)"""
     db = SessionLocal()
-    if db.query(models.AssetPriceRef).count() > 0:
-        db.close()
-        return
-
-    # 기준가 = 신품 소매가 × 20% (B2B 중고 매입 기준, 연식 계수는 별도 적용)
-    price_refs = [
-        # ── 노트북 ────────────────────────────────────────────
-        ("노트북", "LG 그램 14/16", "lg,그램,gram,14z90,16z90,15z95,17z90", 300_000),
-        ("노트북", "삼성 갤럭시북", "samsung,삼성,galaxy book,갤럭시북,nt950,nt960,nt760,nt550", 280_000),
-        ("노트북", "HP EliteBook 840/850", "hp,elitebook,840,850", 320_000),
-        ("노트북", "HP ProBook", "hp,probook,450,430", 220_000),
-        ("노트북", "Dell Latitude 5000", "dell,latitude,5430,5440,5530,5540,5340", 280_000),
-        ("노트북", "Dell Latitude 7000", "dell,latitude,7430,7440,7530,7540", 380_000),
-        ("노트북", "Lenovo ThinkPad X1 Carbon", "lenovo,thinkpad,x1 carbon,x1c", 420_000),
-        ("노트북", "Lenovo ThinkPad T/E 시리즈", "lenovo,thinkpad,t14,t15,e15,e14", 250_000),
-        ("노트북", "Apple MacBook Air M1/M2", "apple,macbook,air,m1,m2", 500_000),
-        ("노트북", "Apple MacBook Pro", "apple,macbook,pro", 650_000),
-        ("노트북", "Microsoft Surface Pro", "microsoft,surface,pro", 280_000),
-        ("노트북", "HP ZBook", "hp,zbook,firefly", 480_000),
-        # ── PC (데스크탑) ─────────────────────────────────────
-        ("PC", "HP ProDesk 400", "hp,prodesk,400", 170_000),
-        ("PC", "HP ProDesk 600/EliteDesk 800", "hp,prodesk,600,elitedesk,800", 240_000),
-        ("PC", "Dell OptiPlex 3000", "dell,optiplex,3090,3080,3000,3010", 160_000),
-        ("PC", "Dell OptiPlex 5000/7000", "dell,optiplex,5090,5080,7090,7080,7010", 240_000),
-        ("PC", "Lenovo ThinkCentre M70", "lenovo,thinkcentre,m70,m720", 160_000),
-        ("PC", "Lenovo ThinkCentre M80/M90", "lenovo,thinkcentre,m80,m90,m720t", 240_000),
-        ("PC", "삼성 DM 시리즈", "samsung,삼성,dm500,dm400,db400", 160_000),
-        # ── 프린터 ───────────────────────────────────────────
-        ("프린터", "HP LaserJet Pro", "hp,laserjet,pro,m404,m403", 40_000),
-        ("프린터", "HP LaserJet Enterprise", "hp,laserjet,enterprise,m507,m506", 70_000),
-        ("프린터", "Brother 레이저", "brother,hl-l,dcp-l", 35_000),
-        # ── 복합기 ───────────────────────────────────────────
-        ("복합기", "HP LaserJet MFP", "hp,laserjet,mfp,m428,m429,m430", 70_000),
-        ("복합기", "신도리코/캐논/제록스", "신도리코,canon,xerox,ricoh", 80_000),
-    ]
-
-    for cat, display, keywords, price in price_refs:
-        db.add(models.AssetPriceRef(
-            category=cat,
-            model_display=display,
-            keywords=keywords,
-            base_price=price,
-        ))
-
-    db.commit()
+    if db.query(models.AssetPriceRef).count() == 0:
+        for category, code, display, mem, os_s, price in PRICE_REF_DATA:
+            db.add(models.AssetPriceRef(
+                category=category,
+                model_code=code,
+                model_display=display,
+                mem_spec=mem,
+                os_spec=os_s,
+                base_price=price,
+            ))
+        db.commit()
+        print(f"  [seed] 가견적 기준가 {len(PRICE_REF_DATA)}건 등록 완료")
     db.close()
-    print("  [seed] AssetPriceRef 기준가 데이터 초기화 완료")
 
 
 if __name__ == "__main__":

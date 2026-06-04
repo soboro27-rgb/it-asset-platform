@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block title %}가견적 기준가 관리{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h4><i class="bi bi-tags-fill me-2" style="color:var(--mg)"></i>가견적 기준가 관리</h4>
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb mb-0">
+      <li class="breadcrumb-item"><a href="/admin/dashboard" style="color:var(--mg)">대시보드</a></li>
+      <li class="breadcrumb-item active">가견적 기준가</li>
+    </ol>
+  </nav>
+</div>
+
+<div class="row g-3">
+  <!-- 등록 폼 -->
+  <div class="col-lg-4">
+    <div class="card">
+      <div class="card-header"><i class="bi bi-plus-circle me-2"></i>기준가 추가</div>
+      <div class="card-body">
+        <form method="post" action="/admin/price-refs">
+          <div class="mb-2">
+            <label class="form-label" style="font-size:12px">카테고리 *</label>
+            <select name="category" class="form-select form-select-sm">
+              <option value="PC">PC</option>
+              <option value="노트북">노트북</option>
+              <option value="태블릿">태블릿</option>
+              <option value="모바일">모바일</option>
+              <option value="프린터">프린터</option>
+              <option value="복합기">복합기</option>
+              <option value="기타전산기기">기타전산기기</option>
+            </select>
+          </div>
+          <div class="mb-2">
+            <label class="form-label" style="font-size:12px">제품코드</label>
+            <input type="text" name="model_code" class="form-control form-control-sm" placeholder="예: DB400S3A">
+          </div>
+          <div class="mb-2">
+            <label class="form-label" style="font-size:12px">모델 설명 (CPU 등) *</label>
+            <input type="text" name="model_display" class="form-control form-control-sm" placeholder="예: Intel Core i5-9400(2.9GHz)" required>
+          </div>
+          <div class="mb-2">
+            <label class="form-label" style="font-size:12px">메모리 사양</label>
+            <input type="text" name="mem_spec" class="form-control form-control-sm" placeholder="예: 8GB DDR4 2666MHz">
+          </div>
+          <div class="mb-2">
+            <label class="form-label" style="font-size:12px">OS</label>
+            <input type="text" name="os_spec" class="form-control form-control-sm" placeholder="예: Windows 10 Pro 64bit">
+          </div>
+          <div class="mb-3">
+            <label class="form-label" style="font-size:12px">가견적 기준 단가 (원) *</label>
+            <input type="number" name="base_price" class="form-control form-control-sm" placeholder="예: 200000" required min="0">
+          </div>
+          <button type="submit" class="btn btn-mg btn-sm w-100">
+            <i class="bi bi-plus me-1"></i>추가
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- 목록 -->
+  <div class="col-lg-8">
+    <div class="card">
+      <div class="card-header d-flex align-items-center">
+        <i class="bi bi-table me-2"></i>기준가 목록
+        <span class="badge bg-secondary ms-2">{{ refs|length }}건</span>
+        <small class="text-muted ms-auto" style="font-size:11px">지점 신청서에서 모델명 입력 시 자동완성에 사용됩니다</small>
+      </div>
+      <div class="card-body p-0">
+        {% if refs %}
+        <table class="table table-sm mb-0" style="font-size:12px">
+          <thead class="table-light">
+            <tr>
+              <th class="ps-3" style="width:70px">카테고리</th>
+              <th style="width:110px">제품코드</th>
+              <th>모델 설명</th>
+              <th style="width:120px">메모리</th>
+              <th style="width:80px">단가</th>
+              <th style="width:60px"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in refs %}
+            <tr>
+              <td class="ps-3"><span class="badge bg-secondary">{{ r.category }}</span></td>
+              <td class="fw-semibold">{{ r.model_code or '-' }}</td>
+              <td>
+                {{ r.model_display }}
+                {% if r.os_spec %}<div class="text-muted" style="font-size:11px">{{ r.os_spec }}</div>{% endif %}
+              </td>
+              <td class="text-muted">{{ r.mem_spec or '-' }}</td>
+              <td class="fw-bold" style="color:var(--mg)">{{ "{:,}".format(r.base_price) }}원</td>
+              <td>
+                <form method="post" action="/admin/price-refs/{{ r.id }}/delete"
+                      onsubmit="return confirm('삭제하시겠습니까?')" style="display:inline">
+                  <button type="submit" class="btn btn-outline-danger btn-sm" style="font-size:11px;padding:2px 8px">삭제</button>
+                </form>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <div class="text-center py-5 text-muted" style="font-size:13px">
+          등록된 기준가가 없습니다. 좌측 폼에서 추가하세요.
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

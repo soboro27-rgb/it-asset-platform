@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from database import get_db
 import models
 from auth import require_admin
-from config import templates, CATEGORIES
+from config import templates
 from datetime import datetime
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
@@ -15,7 +15,6 @@ import os
 import base64
 from pathlib import Path
 from stamp_data import STAMP_B64
-from pricing import load_pricing_config, DEFAULT_GRADE, DEFAULT_AGE, DEFAULT_BASE
 
 router = APIRouter()
 
@@ -31,6 +30,16 @@ def _check(request: Request):
 
 def _get_fee_rate(db: Session) -> float:
     config = db.query(models.SystemConfig).filter(models.SystemConfig.key == "welfare_fee_rate").first()
+    if config:
+        try:
+            return float(config.value)
+        except (ValueError, TypeError):
+            return 0.0
+    return 0.0
+
+
+def _get_operator_fee_rate(db: Session) -> float:
+    config = db.query(models.SystemConfig).filter(models.SystemConfig.key == "operator_fee_rate").first()
     if config:
         try:
             return float(config.value)
@@ -104,10 +113,18 @@ def application_detail(request: Request, app_id: int, error: str = "", db: Sessi
     if not app:
         return RedirectResponse("/admin/applications", status_code=302)
 
-    fee_rate = _get_fee_rate(db)
+    welfare_fee_rate   = _get_fee_rate(db)
+    operator_fee_rate  = _get_operator_fee_rate(db)
     return templates.TemplateResponse(
         "admin/application_detail.html",
-        {"request": request, "session": request.session, "app": app, "welfare_fee_rate": fee_rate, "error": error},
+        {
+            "request": request,
+            "session": request.session,
+            "app": app,
+            "welfare_fee_rate": welfare_fee_rate,
+            "operator_fee_rate": operator_fee_rate,
+            "error": error,
+        },
     )
 
 
@@ -116,7 +133,7 @@ def approve(request: Request, app_id: int, db: Session = Depends(get_db)):
     user, redir = _check(request)
     if redir:
         return redir
-    if user["role"] != "coretail":
+    if user["role"] not in ("coretail", "operator"):
         return RedirectResponse(f"/admin/applications/{app_id}", status_code=302)
 
     app = db.query(models.Application).filter(
@@ -137,7 +154,7 @@ async def set_schedule(request: Request, app_id: int, db: Session = Depends(get_
     user, redir = _check(request)
     if redir:
         return redir
-    if user["role"] != "coretail":
+    if user["role"] not in ("coretail", "operator"):
         return RedirectResponse(f"/admin/applications/{app_id}", status_code=302)
 
     form = await request.form()
@@ -171,7 +188,7 @@ async def mark_collected(request: Request, app_id: int, db: Session = Depends(ge
     user, redir = _check(request)
     if redir:
         return redir
-    if user["role"] != "coretail":
+    if user["role"] not in ("coretail", "operator"):
         return RedirectResponse(f"/admin/applications/{app_id}", status_code=302)
 
     form = await request.form()
@@ -739,7 +756,7 @@ def blancco_receive(request: Request, app_id: int, db: Session = Depends(get_db)
     user, redir = _check(request)
     if redir:
         return redir
-    if user["role"] != "coretail":
+    if user["role"] not in ("coretail", "operator"):
         return RedirectResponse(f"/admin/applications/{app_id}", status_code=302)
 
     app = db.query(models.Application).filter(models.Application.id == app_id).first()
@@ -759,7 +776,7 @@ async def blancco_upload_cert(request: Request, app_id: int, db: Session = Depen
     user, redir = _check(request)
     if redir:
         return redir
-    if user["role"] != "coretail":
+    if user["role"] not in ("coretail", "operator"):
         return RedirectResponse(f"/admin/applications/{app_id}", status_code=302)
 
     form = await request.form()
@@ -852,7 +869,7 @@ async def set_pricing(request: Request, app_id: int, db: Session = Depends(get_d
     user, redir = _check(request)
     if redir:
         return redir
-    if user["role"] != "coretail":
+    if user["role"] not in ("coretail", "operator"):
         return RedirectResponse(f"/admin/applications/{app_id}", status_code=302)
 
     form = await request.form()
@@ -879,11 +896,19 @@ async def set_pricing(request: Request, app_id: int, db: Session = Depends(get_d
             db.flush()
             db.refresh(app)
 
-        fee_rate = _get_fee_rate(db)
-        branch_total = total * (1 - fee_rate / 100)
+        operator_fee_rate = _get_operator_fee_rate(db)
+        welfare_fee_rate  = _get_fee_rate(db)
 
-        app.settlement.total_amount = total
-        app.settlement.welfare_fee_rate = fee_rate
+        # 2단계 수수료 계산
+        # 1단계: 운영사 수수료 차감 → 복지회에 보이는 금액
+        welfare_view = total * (1 - operator_fee_rate / 100)
+        # 2단계: 복지회 수수료 차감 → 지점 수령 예정액
+        branch_total = welfare_view * (1 - welfare_fee_rate / 100)
+
+        app.settlement.total_amount       = total
+        app.settlement.operator_fee_rate  = operator_fee_rate
+        app.settlement.welfare_view_amount = welfare_view
+        app.settlement.welfare_fee_rate   = welfare_fee_rate
         app.settlement.branch_total_amount = branch_total
         app.settlement.pricing_notes = form.get("pricing_notes", "")
         app.status = "priced"
@@ -898,13 +923,17 @@ def settings_page(request: Request, db: Session = Depends(get_db)):
     user, redir = _check(request)
     if redir:
         return redir
-    if user["role"] != "coretail":
+    if user["role"] not in ("coretail", "operator"):
         return RedirectResponse("/admin/dashboard", status_code=302)
 
-    fee_rate = _get_fee_rate(db)
     return templates.TemplateResponse(
         "admin/settings.html",
-        {"request": request, "session": request.session, "welfare_fee_rate": fee_rate},
+        {
+            "request": request,
+            "session": request.session,
+            "operator_fee_rate": _get_operator_fee_rate(db),
+            "welfare_fee_rate":  _get_fee_rate(db),
+        },
     )
 
 
@@ -913,25 +942,74 @@ async def save_settings(request: Request, db: Session = Depends(get_db)):
     user, redir = _check(request)
     if redir:
         return redir
-    if user["role"] != "coretail":
+    if user["role"] not in ("coretail", "operator"):
         return RedirectResponse("/admin/dashboard", status_code=302)
 
     form = await request.form()
-    try:
-        rate = float(form.get("welfare_fee_rate", 0) or 0)
-        rate = max(0.0, min(100.0, rate))
-    except (ValueError, TypeError):
-        rate = 0.0
 
-    config = db.query(models.SystemConfig).filter(models.SystemConfig.key == "welfare_fee_rate").first()
-    if config:
-        config.value = str(rate)
-        config.updated_at = datetime.now()
-    else:
-        db.add(models.SystemConfig(key="welfare_fee_rate", value=str(rate)))
+    def _clamp(key: str) -> float:
+        try:
+            return max(0.0, min(100.0, float(form.get(key, 0) or 0)))
+        except (ValueError, TypeError):
+            return 0.0
+
+    for key, val in [
+        ("operator_fee_rate", _clamp("operator_fee_rate")),
+        ("welfare_fee_rate",  _clamp("welfare_fee_rate")),
+    ]:
+        config = db.query(models.SystemConfig).filter(models.SystemConfig.key == key).first()
+        if config:
+            config.value = str(val)
+            config.updated_at = datetime.now()
+        else:
+            db.add(models.SystemConfig(key=key, value=str(val)))
     db.commit()
 
     return RedirectResponse("/admin/settings", status_code=302)
+
+
+@router.post("/applications/{app_id}/buyer-payment")
+def buyer_payment(request: Request, app_id: int, db: Session = Depends(get_db)):
+    """매입사 → 운영사 입금 확인"""
+    user, redir = _check(request)
+    if redir:
+        return redir
+    if user["role"] not in ("coretail", "operator"):
+        return RedirectResponse(f"/admin/applications/{app_id}", status_code=302)
+
+    app = db.query(models.Application).filter(
+        models.Application.id == app_id,
+        models.Application.status == "branch_confirmed",
+    ).first()
+    if app and app.settlement and not app.settlement.buyer_paid:
+        app.settlement.buyer_paid = True
+        app.settlement.buyer_paid_at = datetime.now()
+        app.updated_at = datetime.now()
+        db.commit()
+
+    return RedirectResponse(f"/admin/applications/{app_id}", status_code=302)
+
+
+@router.post("/applications/{app_id}/operator-payment")
+def operator_payment(request: Request, app_id: int, db: Session = Depends(get_db)):
+    """운영사 → 복지회 입금 확인"""
+    user, redir = _check(request)
+    if redir:
+        return redir
+    if user["role"] not in ("coretail", "operator"):
+        return RedirectResponse(f"/admin/applications/{app_id}", status_code=302)
+
+    app = db.query(models.Application).filter(
+        models.Application.id == app_id,
+        models.Application.status == "branch_confirmed",
+    ).first()
+    if app and app.settlement and app.settlement.buyer_paid and not app.settlement.operator_paid:
+        app.settlement.operator_paid = True
+        app.settlement.operator_paid_at = datetime.now()
+        app.updated_at = datetime.now()
+        db.commit()
+
+    return RedirectResponse(f"/admin/applications/{app_id}", status_code=302)
 
 
 @router.post("/applications/{app_id}/complete")
@@ -947,7 +1025,7 @@ def complete_payment(request: Request, app_id: int, db: Session = Depends(get_db
         models.Application.status == "branch_confirmed",
     ).first()
 
-    if app and app.settlement:
+    if app and app.settlement and app.settlement.operator_paid:
         app.settlement.welfare_confirmed = True
         app.settlement.welfare_confirmed_at = datetime.now()
         app.settlement.payment_confirmed = True
@@ -959,67 +1037,85 @@ def complete_payment(request: Request, app_id: int, db: Session = Depends(get_db
     return RedirectResponse(f"/admin/applications/{app_id}", status_code=302)
 
 
-# ── 견적 로직 설정 ─────────────────────────────────────────────────
+# ── 가견적 기준가 관리 ─────────────────────────────────────
 
-@router.get("/pricing-settings", response_class=HTMLResponse)
-def pricing_settings_page(request: Request, db: Session = Depends(get_db)):
+@router.get("/api/price-refs", response_class=JSONResponse)
+def price_ref_search(request: Request, q: str = "", category: str = "", db: Session = Depends(get_db)):
+    """지점 신청서 자동완성용 가격 기준표 검색 API (인증 불필요)"""
+    query = db.query(models.AssetPriceRef).filter(models.AssetPriceRef.is_active == True)
+    if category:
+        query = query.filter(models.AssetPriceRef.category == category)
+    if q:
+        like = f"%{q}%"
+        query = query.filter(
+            models.AssetPriceRef.model_code.ilike(like) |
+            models.AssetPriceRef.model_display.ilike(like)
+        )
+    refs = query.order_by(models.AssetPriceRef.base_price).limit(20).all()
+    return JSONResponse([{
+        "id":            r.id,
+        "model_code":    r.model_code,
+        "model_display": r.model_display,
+        "mem_spec":      r.mem_spec,
+        "os_spec":       r.os_spec,
+        "base_price":    r.base_price,
+        "category":      r.category,
+    } for r in refs])
+
+
+@router.get("/price-refs", response_class=HTMLResponse)
+def price_ref_list(request: Request, db: Session = Depends(get_db)):
     user, redir = _check(request)
     if redir:
         return redir
-    if user["role"] != "coretail":
+    if user["role"] not in ("coretail", "operator"):
         return RedirectResponse("/admin/dashboard", status_code=302)
 
-    cfg = load_pricing_config(db)
-    return templates.TemplateResponse(
-        "admin/pricing_settings.html",
-        {
-            "request": request,
-            "session": request.session,
-            "cfg": cfg,
-            "categories": CATEGORIES,
-            "saved": request.query_params.get("saved"),
-        },
-    )
+    refs = db.query(models.AssetPriceRef).order_by(
+        models.AssetPriceRef.category, models.AssetPriceRef.base_price
+    ).all()
+    return templates.TemplateResponse("admin/price_refs.html", {
+        "request": request, "session": request.session, "refs": refs,
+    })
 
 
-@router.post("/pricing-settings")
-async def save_pricing_settings(request: Request, db: Session = Depends(get_db)):
+@router.post("/price-refs")
+async def price_ref_create(request: Request, db: Session = Depends(get_db)):
     user, redir = _check(request)
     if redir:
         return redir
-    if user["role"] != "coretail":
-        return RedirectResponse("/admin/dashboard", status_code=302)
+    if user["role"] not in ("coretail", "operator"):
+        return RedirectResponse("/admin/price-refs", status_code=302)
 
     form = await request.form()
+    try:
+        price = int(str(form.get("base_price", 0)).replace(",", "") or 0)
+    except ValueError:
+        price = 0
 
-    def _set(key: str, value: str):
-        row = db.query(models.SystemConfig).filter(models.SystemConfig.key == key).first()
-        if row:
-            row.value = value
-            row.updated_at = datetime.now()
-        else:
-            db.add(models.SystemConfig(key=key, value=value, updated_at=datetime.now()))
-
-    for g in ("상", "중", "하"):
-        val = form.get(f"grade_{g}", "")
-        try:
-            _set(f"pricing_grade_{g}", str(round(max(0.0, min(2.0, float(val))), 4)))
-        except (ValueError, TypeError):
-            pass
-
-    for i in range(7):
-        val = form.get(f"age_{i}", "")
-        try:
-            _set(f"pricing_age_{i}", str(round(max(0.0, min(2.0, float(val))), 4)))
-        except (ValueError, TypeError):
-            pass
-
-    for cat in CATEGORIES:
-        val = form.get(f"base_{cat}", "")
-        try:
-            _set(f"pricing_base_{cat}", str(max(0, int(float(val)))))
-        except (ValueError, TypeError):
-            pass
-
+    db.add(models.AssetPriceRef(
+        category=form.get("category", "PC"),
+        model_code=form.get("model_code", "").strip(),
+        model_display=form.get("model_display", "").strip(),
+        mem_spec=form.get("mem_spec", "").strip(),
+        os_spec=form.get("os_spec", "").strip(),
+        base_price=price,
+        updated_at=datetime.now(),
+    ))
     db.commit()
-    return RedirectResponse("/admin/pricing-settings?saved=1", status_code=302)
+    return RedirectResponse("/admin/price-refs", status_code=302)
+
+
+@router.post("/price-refs/{ref_id}/delete")
+def price_ref_delete(request: Request, ref_id: int, db: Session = Depends(get_db)):
+    user, redir = _check(request)
+    if redir:
+        return redir
+    if user["role"] not in ("coretail", "operator"):
+        return RedirectResponse("/admin/price-refs", status_code=302)
+
+    ref = db.query(models.AssetPriceRef).filter(models.AssetPriceRef.id == ref_id).first()
+    if ref:
+        db.delete(ref)
+        db.commit()
+    return RedirectResponse("/admin/price-refs", status_code=302)

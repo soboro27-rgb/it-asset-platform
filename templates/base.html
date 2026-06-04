@@ -154,11 +154,11 @@
     {% if session.get('role') == 'coretail' %}
     <hr/>
     <div class="section-label">시스템</div>
-    <a href="/admin/settings" class="nav-link {% if request.url.path == '/admin/settings' %}active{% endif %}">
+    <a href="/admin/settings" class="nav-link {% if '/settings' in request.url.path %}active{% endif %}">
       <i class="bi bi-gear-fill"></i>수수료 설정
     </a>
-    <a href="/admin/pricing-settings" class="nav-link {% if '/pricing-settings' in request.url.path %}active{% endif %}">
-      <i class="bi bi-sliders"></i>견적 로직 설정
+    <a href="/admin/price-refs" class="nav-link {% if '/price-refs' in request.url.path %}active{% endif %}">
+      <i class="bi bi-tags-fill"></i>가견적 기준가
     </a>
     {% endif %}
     {% endif %}

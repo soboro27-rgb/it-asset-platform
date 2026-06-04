@@ -251,11 +251,19 @@
           <div class="p-3">
             <div class="p-2 rounded mb-3" style="background:#f0f7ff;border:1px solid #c8dfff;font-size:13px">
               <div class="d-flex justify-content-between align-items-center">
-                <span class="text-muted">적용 수수료율 (복지회)</span>
-                <strong class="text-primary">{{ welfare_fee_rate }}%</strong>
+                <span class="text-muted">운영사 수수료율</span>
+                <strong style="color:#2563eb">{{ operator_fee_rate }}%</strong>
               </div>
               <div class="d-flex justify-content-between align-items-center mt-1">
-                <span class="text-muted">지점 표시 금액 (수수료 차감)</span>
+                <span class="text-muted">복지회 표시 금액 (운영사 수수료 차감)</span>
+                <strong style="color:#2563eb;font-size:14px" id="welfareViewAmount">-</strong>
+              </div>
+              <div class="d-flex justify-content-between align-items-center mt-1">
+                <span class="text-muted">복지회 수수료율</span>
+                <strong class="text-primary">{{ welfare_fee_rate }}%</strong>
+              </div>
+              <div class="d-flex justify-content-between align-items-center mt-1" style="border-top:1px solid #c8dfff;padding-top:4px">
+                <span class="text-muted">지점 수령 예정액 (전체 수수료 차감)</span>
                 <strong style="color:var(--mg);font-size:15px" id="branchAmount">-</strong>
               </div>
             </div>
@@ -422,33 +430,78 @@
 
     <!-- 정산 정보 (priced 이후) -->
     {% if app.settlement and app.status in ['priced','branch_confirmed','completed'] %}
+    {% set s = app.settlement %}{% set role = session.get('role') %}
     <div class="card mb-3">
       <div class="card-header"><i class="bi bi-receipt me-2"></i>정산 정보</div>
       <div class="card-body" style="font-size:13px">
         <div class="row g-2 mb-3">
+          {% if role == 'welfare' %}
+          {# 복지회: 운영사 수수료 차감 후 금액 기준으로 표시 #}
           <div class="col-4">
-            <span class="text-muted">매입사 매입금액</span>
-            <div class="fw-bold mt-1" style="font-size:16px;color:#555">{{ "{:,.0f}".format(app.settlement.total_amount) }}원</div>
+            <span class="text-muted">수령 금액 <small class="text-muted">(운영사 수수료 차감)</small></span>
+            <div class="fw-bold mt-1" style="font-size:16px;color:#2563eb">{{ "{:,.0f}".format(s.welfare_view_amount or s.total_amount) }}원</div>
           </div>
           <div class="col-4">
-            <span class="text-muted">복지회 수수료 ({{ app.settlement.welfare_fee_rate }}%)</span>
+            <span class="text-muted">복지회 수수료 ({{ s.welfare_fee_rate }}%)</span>
             <div class="fw-bold mt-1 text-danger" style="font-size:14px">
-              - {{ "{:,.0f}".format(app.settlement.total_amount * app.settlement.welfare_fee_rate / 100) }}원
+              - {{ "{:,.0f}".format((s.welfare_view_amount or s.total_amount) * s.welfare_fee_rate / 100) }}원
             </div>
           </div>
           <div class="col-4">
             <span class="text-muted">지점 수령 예정액</span>
-            <div class="fw-bold mt-1" style="font-size:18px;color:var(--mg)">{{ "{:,.0f}".format(app.settlement.branch_total_amount) }}원</div>
+            <div class="fw-bold mt-1" style="font-size:18px;color:var(--mg)">{{ "{:,.0f}".format(s.branch_total_amount) }}원</div>
           </div>
+          {% elif role == 'coretail' %}
+          {# 매입사: 매입가 + 지점 최종 수령액 표시 #}
+          <div class="col-4">
+            <span class="text-muted">매입사 매입금액</span>
+            <div class="fw-bold mt-1" style="font-size:16px;color:#555">{{ "{:,.0f}".format(s.total_amount) }}원</div>
+          </div>
+          <div class="col-4">
+            <span class="text-muted">복지회 수수료 ({{ s.welfare_fee_rate }}%)</span>
+            <div class="fw-bold mt-1 text-danger" style="font-size:14px">
+              - {{ "{:,.0f}".format((s.welfare_view_amount or s.total_amount) * s.welfare_fee_rate / 100) }}원
+            </div>
+          </div>
+          <div class="col-4">
+            <span class="text-muted">지점 수령 예정액</span>
+            <div class="fw-bold mt-1" style="font-size:18px;color:var(--mg)">{{ "{:,.0f}".format(s.branch_total_amount) }}원</div>
+          </div>
+          {% else %}
+          {# 운영사: 전체 내역 표시 #}
+          <div class="col-3">
+            <span class="text-muted">매입사 매입금액</span>
+            <div class="fw-bold mt-1" style="font-size:14px;color:#555">{{ "{:,.0f}".format(s.total_amount) }}원</div>
+          </div>
+          <div class="col-3">
+            <span class="text-muted">운영사 수수료 ({{ s.operator_fee_rate }}%)</span>
+            <div class="fw-bold mt-1 text-danger" style="font-size:13px">- {{ "{:,.0f}".format(s.total_amount * s.operator_fee_rate / 100) }}원</div>
+            <div class="text-muted mt-1" style="font-size:11px">복지회 표시: {{ "{:,.0f}".format(s.welfare_view_amount or s.total_amount) }}원</div>
+          </div>
+          <div class="col-3">
+            <span class="text-muted">복지회 수수료 ({{ s.welfare_fee_rate }}%)</span>
+            <div class="fw-bold mt-1 text-danger" style="font-size:13px">- {{ "{:,.0f}".format((s.welfare_view_amount or s.total_amount) * s.welfare_fee_rate / 100) }}원</div>
+          </div>
+          <div class="col-3">
+            <span class="text-muted">지점 수령 예정액</span>
+            <div class="fw-bold mt-1" style="font-size:18px;color:var(--mg)">{{ "{:,.0f}".format(s.branch_total_amount) }}원</div>
+          </div>
+          {% endif %}
         </div>
         <div class="row g-2">
           <div class="col-6"><span class="text-muted">지점 승인</span>
-            <div class="mt-1">{% if app.settlement.branch_confirmed %}<span class="badge bg-success">승인 ({{ app.settlement.branch_confirmed_at.strftime('%m-%d') if app.settlement.branch_confirmed_at else '' }})</span>{% else %}<span class="badge bg-warning text-dark">대기중</span>{% endif %}</div>
+            <div class="mt-1">{% if s.branch_confirmed %}<span class="badge bg-success">승인 ({{ s.branch_confirmed_at.strftime('%m-%d') if s.branch_confirmed_at else '' }})</span>{% else %}<span class="badge bg-warning text-dark">대기중</span>{% endif %}</div>
           </div>
-          <div class="col-6"><span class="text-muted">복지회 확인</span>
-            <div class="mt-1">{% if app.settlement.welfare_confirmed %}<span class="badge bg-success">확인완료</span>{% else %}<span class="badge bg-secondary">미확인</span>{% endif %}</div>
+          <div class="col-6"><span class="text-muted">① 매입사→운영사</span>
+            <div class="mt-1">{% if s.buyer_paid %}<span class="badge bg-success">입금완료 ({{ s.buyer_paid_at.strftime('%m-%d') if s.buyer_paid_at else '' }})</span>{% else %}<span class="badge bg-warning text-dark">대기중</span>{% endif %}</div>
           </div>
-          <div class="col-6"><span class="text-muted">입금일</span><div class="fw-semibold mt-1">{{ app.settlement.payment_date or '-' }}</div></div>
+          <div class="col-6"><span class="text-muted">② 운영사→복지회</span>
+            <div class="mt-1">{% if s.operator_paid %}<span class="badge bg-success">입금완료 ({{ s.operator_paid_at.strftime('%m-%d') if s.operator_paid_at else '' }})</span>{% else %}<span class="badge bg-secondary">대기중</span>{% endif %}</div>
+          </div>
+          <div class="col-6"><span class="text-muted">③ 복지회→지점</span>
+            <div class="mt-1">{% if s.welfare_confirmed %}<span class="badge bg-success">입금완료</span>{% else %}<span class="badge bg-secondary">대기중</span>{% endif %}</div>
+          </div>
+          <div class="col-6"><span class="text-muted">입금일</span><div class="fw-semibold mt-1">{{ s.payment_date or '-' }}</div></div>
           {% if app.settlement.pricing_notes %}
           <div class="col-12"><span class="text-muted">비고</span><div class="mt-1 p-2 bg-light rounded" style="font-size:12px">{{ app.settlement.pricing_notes }}</div></div>
           {% endif %}
@@ -518,7 +571,7 @@
       </div>
     </div>
 
-    {% elif app.status == 'schedule_confirmed' and session.get('role') == 'coretail' %}
+    {% elif app.status == 'schedule_confirmed' and session.get('role') in ['coretail','operator'] %}
     <!-- 수거 완료 처리 안내 -->
     <div class="card border-success mb-3" style="background:#e8f5e9">
       <div class="card-body text-center py-4">
@@ -528,7 +581,7 @@
       </div>
     </div>
 
-    {% elif app.status == 'collected' and session.get('role') == 'coretail' %}
+    {% elif app.status == 'collected' and session.get('role') in ['coretail','operator'] %}
     <div class="card border-0 mb-3" style="background:#fff3e0">
       <div class="card-body text-center py-3">
         <i class="bi bi-calculator" style="font-size:32px;color:#f57c00"></i>
@@ -544,52 +597,129 @@
         <div class="fw-bold mt-2">지점 금액 승인 대기 중</div>
         <div class="text-muted mt-1" style="font-size:12px">지점 담당자의 금액 승인을<br/>기다리고 있습니다.</div>
         {% if app.settlement %}
+        {% set s = app.settlement %}{% set role = session.get('role') %}
         <div class="mt-3 p-2 bg-white rounded border" style="font-size:13px">
+          {% if role == 'welfare' %}
+          <div class="text-muted" style="font-size:11px">복지회 수령 금액 (운영사 수수료 차감)</div>
+          <div style="font-size:16px;font-weight:700;color:#2563eb">{{ "{:,.0f}".format(s.welfare_view_amount or s.total_amount) }}원</div>
+          {% else %}
           <div class="text-muted" style="font-size:11px">매입금액</div>
-          <div style="font-size:16px;font-weight:700;color:#555">{{ "{:,.0f}".format(app.settlement.total_amount) }}원</div>
-          <div class="text-muted mt-1" style="font-size:11px">지점 표시 금액 (수수료 {{ app.settlement.welfare_fee_rate }}% 차감)</div>
-          <div style="font-size:20px;font-weight:700;color:var(--mg)">{{ "{:,.0f}".format(app.settlement.branch_total_amount) }}원</div>
+          <div style="font-size:16px;font-weight:700;color:#555">{{ "{:,.0f}".format(s.total_amount) }}원</div>
+          {% endif %}
+          <div class="text-muted mt-1" style="font-size:11px">지점 수령 예정액 (전체 수수료 차감)</div>
+          <div style="font-size:20px;font-weight:700;color:var(--mg)">{{ "{:,.0f}".format(s.branch_total_amount) }}원</div>
         </div>
         {% endif %}
       </div>
     </div>
 
     {% elif app.status == 'branch_confirmed' and session.get('role') == 'welfare' %}
-    <!-- 입금 완료 (복지회만) -->
+    {# 복지회: 운영사 입금 확인 후 지점에 입금 처리 #}
+    {% set s = app.settlement %}
+    {% if not s or not s.operator_paid %}
+    <div class="card border-0 mb-3" style="background:#fff3e0">
+      <div class="card-body text-center py-4">
+        <i class="bi bi-hourglass-split" style="font-size:36px;color:#f57c00"></i>
+        <div class="fw-bold mt-2">운영사 입금 처리 전</div>
+        <div class="text-muted mt-1" style="font-size:12px">
+          운영사에서 복지회로<br/>입금 처리를 기다리고 있습니다.
+        </div>
+      </div>
+    </div>
+    {% else %}
     <div class="card border-success mb-3">
-      <div class="card-header" style="background:#e8f5e9"><i class="bi bi-bank me-2"></i>매각 대금 입금 처리</div>
+      <div class="card-header" style="background:#e8f5e9"><i class="bi bi-bank me-2"></i>지점 입금 처리</div>
       <div class="card-body">
-        {% if app.settlement %}
         <div class="mb-3" style="font-size:13px">
           <div class="d-flex justify-content-between py-1 border-bottom">
-            <span class="text-muted">매입사 매입금액</span>
-            <strong>{{ "{:,.0f}".format(app.settlement.total_amount) }}원</strong>
+            <span class="text-muted">복지회 수령 금액 <small>(운영사 입금 확인됨)</small></span>
+            <strong style="color:#2563eb">{{ "{:,.0f}".format(s.welfare_view_amount or s.total_amount) }}원</strong>
           </div>
           <div class="d-flex justify-content-between py-1 border-bottom">
-            <span class="text-muted">복지회 수수료 ({{ app.settlement.welfare_fee_rate }}%)</span>
-            <strong class="text-danger">- {{ "{:,.0f}".format(app.settlement.total_amount * app.settlement.welfare_fee_rate / 100) }}원</strong>
+            <span class="text-muted">복지회 수수료 ({{ s.welfare_fee_rate }}%)</span>
+            <strong class="text-danger">- {{ "{:,.0f}".format((s.welfare_view_amount or s.total_amount) * s.welfare_fee_rate / 100) }}원</strong>
           </div>
           <div class="d-flex justify-content-between py-1">
             <span class="text-muted fw-bold">지점 입금액</span>
-            <strong style="font-size:18px;color:var(--mg)">{{ "{:,.0f}".format(app.settlement.branch_total_amount) }}원</strong>
+            <strong style="font-size:18px;color:var(--mg)">{{ "{:,.0f}".format(s.branch_total_amount) }}원</strong>
           </div>
         </div>
-        {% endif %}
         <p style="font-size:13px" class="mb-3">지점으로 매각 대금 입금 후 처리하세요.</p>
-        <form method="post" action="/admin/applications/{{ app.id }}/complete" onsubmit="return confirm('입금 완료로 처리하시겠습니까?\n이 작업은 되돌릴 수 없습니다.')">
+        <form method="post" action="/admin/applications/{{ app.id }}/complete"
+              onsubmit="return confirm('입금 완료로 처리하시겠습니까?\n이 작업은 되돌릴 수 없습니다.')">
           <button type="submit" class="btn btn-success w-100">
-            <i class="bi bi-bank me-2"></i>입금 완료 처리
+            <i class="bi bi-bank me-2"></i>지점 입금 완료 처리
           </button>
         </form>
       </div>
     </div>
+    {% endif %}
 
     {% elif app.status == 'branch_confirmed' and session.get('role') == 'coretail' %}
-    <div class="card border-0 mb-3" style="background:#e8f5e9">
+    {# 매입사: 운영사에 입금 확인 #}
+    <div class="card mb-3 {% if not app.settlement.buyer_paid %}border-warning{% else %}border-0{% endif %}">
       <div class="card-body text-center py-4">
-        <i class="bi bi-hourglass-split" style="font-size:36px;color:var(--mg)"></i>
-        <div class="fw-bold mt-2">복지회 입금 처리 대기 중</div>
-        <div class="text-muted mt-1" style="font-size:12px">복지회에서 매각 대금<br/>입금 처리 중입니다.</div>
+        {% if not app.settlement.buyer_paid %}
+        <i class="bi bi-cash-coin" style="font-size:36px;color:#f57c00"></i>
+        <div class="fw-bold mt-2">매입사 입금 처리 전</div>
+        <div class="text-muted mt-1 mb-3" style="font-size:12px">
+          운영사에 매입 대금 입금 후<br/>아래 버튼을 눌러주세요.
+        </div>
+        {% if app.settlement %}
+        <div class="p-2 bg-light rounded mb-3" style="font-size:13px;text-align:left">
+          <div class="d-flex justify-content-between py-1">
+            <span class="text-muted">운영사 입금액</span>
+            <strong>{{ "{:,.0f}".format(app.settlement.total_amount) }}원</strong>
+          </div>
+        </div>
+        {% endif %}
+        <form method="post" action="/admin/applications/{{ app.id }}/buyer-payment"
+              onsubmit="return confirm('운영사에 입금 완료 처리 하시겠습니까?')">
+          <button type="submit" class="btn btn-warning w-100 fw-bold">
+            <i class="bi bi-check-circle me-2"></i>운영사 입금 완료
+          </button>
+        </form>
+        {% else %}
+        <i class="bi bi-check-circle-fill" style="font-size:36px;color:var(--mg)"></i>
+        <div class="fw-bold mt-2">운영사 입금 완료</div>
+        <div class="text-muted mt-1" style="font-size:12px">운영사에서 복지회 입금<br/>처리 대기 중입니다.</div>
+        {% endif %}
+      </div>
+    </div>
+
+    {% elif app.status == 'branch_confirmed' and session.get('role') == 'operator' %}
+    {# 운영사: 매입사 입금 확인 후 복지회에 입금 확인 #}
+    <div class="card mb-3">
+      <div class="card-body text-center py-4">
+        {% if not app.settlement.buyer_paid %}
+        <i class="bi bi-hourglass-split" style="font-size:36px;color:#f57c00"></i>
+        <div class="fw-bold mt-2">매입사 입금 대기 중</div>
+        <div class="text-muted mt-1" style="font-size:12px">매입사에서 운영사로<br/>입금 처리를 기다리고 있습니다.</div>
+        {% elif not app.settlement.operator_paid %}
+        <i class="bi bi-cash-coin" style="font-size:36px;color:#1d4ed8"></i>
+        <div class="fw-bold mt-2">복지회 입금 처리 전</div>
+        <div class="text-muted mt-1 mb-3" style="font-size:12px">
+          매입사 입금 확인됨.<br/>복지회에 입금 후 처리해주세요.
+        </div>
+        {% if app.settlement %}
+        <div class="p-2 bg-light rounded mb-3" style="font-size:13px;text-align:left">
+          <div class="d-flex justify-content-between py-1">
+            <span class="text-muted">복지회 입금액 (운영사 수수료 차감)</span>
+            <strong style="color:#1d4ed8">{{ "{:,.0f}".format(app.settlement.welfare_view_amount or app.settlement.total_amount) }}원</strong>
+          </div>
+        </div>
+        {% endif %}
+        <form method="post" action="/admin/applications/{{ app.id }}/operator-payment"
+              onsubmit="return confirm('복지회에 입금 완료 처리 하시겠습니까?')">
+          <button type="submit" class="btn w-100 fw-bold" style="background:#1d4ed8;color:#fff">
+            <i class="bi bi-check-circle me-2"></i>복지회 입금 완료
+          </button>
+        </form>
+        {% else %}
+        <i class="bi bi-check-circle-fill" style="font-size:36px;color:var(--mg)"></i>
+        <div class="fw-bold mt-2">복지회 입금 완료</div>
+        <div class="text-muted mt-1" style="font-size:12px">복지회에서 지점 입금<br/>처리 대기 중입니다.</div>
+        {% endif %}
       </div>
     </div>
 
@@ -793,7 +923,8 @@ function validateCollectForm() {
   return confirm('데이터 파기/블랑코 처리 정보를 저장하고 수거 완료로 처리하시겠습니까?');
 }
 
-const WELFARE_FEE_RATE = {{ welfare_fee_rate | default(0) }};
+const OPERATOR_FEE_RATE = {{ operator_fee_rate | default(0) }};
+const WELFARE_FEE_RATE  = {{ welfare_fee_rate  | default(0) }};
 
 function calcRow(input) {
   const qty = parseFloat(input.dataset.qty) || 1;
@@ -811,14 +942,19 @@ function calcTotal() {
     const price = parseFloat(inp.value) || 0;
     total += price * qty;
   });
+
   const el = document.getElementById('totalAmount');
   if (el) el.textContent = total.toLocaleString('ko-KR');
 
+  // 2단계 수수료 계산
+  const welfareView = total * (1 - OPERATOR_FEE_RATE / 100);
+  const branch      = welfareView * (1 - WELFARE_FEE_RATE / 100);
+
+  const wvEl = document.getElementById('welfareViewAmount');
+  if (wvEl) wvEl.textContent = welfareView.toLocaleString('ko-KR') + '원';
+
   const branchEl = document.getElementById('branchAmount');
-  if (branchEl) {
-    const branch = total * (1 - WELFARE_FEE_RATE / 100);
-    branchEl.textContent = branch.toLocaleString('ko-KR') + '원';
-  }
+  if (branchEl) branchEl.textContent = branch.toLocaleString('ko-KR') + '원';
 }
 
 // 페이지 로드 시 초기 계산
