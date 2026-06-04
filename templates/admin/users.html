@@ -22,8 +22,7 @@
   <a href="/admin/users" class="btn btn-sm {% if not current_role %}btn-mg{% else %}btn-outline-secondary{% endif %}">전체</a>
   <a href="/admin/users?role=branch" class="btn btn-sm {% if current_role == 'branch' %}btn-success{% else %}btn-outline-secondary{% endif %}">지점 담당자</a>
   <a href="/admin/users?role=welfare" class="btn btn-sm {% if current_role == 'welfare' %}btn-primary{% else %}btn-outline-secondary{% endif %}">주관사</a>
-  <a href="/admin/users?role=operator" class="btn btn-sm {% if current_role == 'operator' %}btn-primary{% else %}btn-outline-secondary{% endif %}">운영사</a>
-  <a href="/admin/users?role=coretail" class="btn btn-sm {% if current_role == 'coretail' %}btn-purple{% else %}btn-outline-secondary{% endif %}" style="{% if current_role == 'coretail' %}background:#6a1b9a;color:#fff;border-color:#6a1b9a{% endif %}">매입사</a>
+  <a href="/admin/users?role=coretail" class="btn btn-sm {% if current_role == 'coretail' %}btn-purple{% else %}btn-outline-secondary{% endif %}" style="{% if current_role == 'coretail' %}background:#6a1b9a;color:#fff;border-color:#6a1b9a{% endif %}">운영사(매입사)</a>
 </div>
 
 <div class="card">
@@ -54,10 +53,8 @@
               <span class="badge bg-success">지점 담당자</span>
             {% elif u.role == 'welfare' %}
               <span class="badge bg-primary">주관사</span>
-            {% elif u.role == 'operator' %}
-              <span class="badge" style="background:#1d4ed8">운영사</span>
             {% else %}
-              <span class="badge" style="background:#6a1b9a">매입사</span>
+              <span class="badge" style="background:#6a1b9a">운영사</span>
             {% endif %}
           </td>
           <td>

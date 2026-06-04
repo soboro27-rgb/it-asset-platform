@@ -12,7 +12,7 @@ class User(Base):
     password_hash = Column(String(255), nullable=False)
     branch_name = Column(String(100), nullable=False)
     region = Column(String(50), default="")
-    role = Column(String(20), default="branch")  # branch / welfare / coretail / operator
+    role = Column(String(20), default="branch")  # branch / welfare / coretail
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.now)
 
@@ -86,18 +86,12 @@ class Settlement(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     application_id = Column(Integer, ForeignKey("applications.id"), unique=True, nullable=False)
-    total_amount = Column(Float, default=0.0)           # 매입사 매입 합계
-    operator_fee_rate = Column(Float, default=0.0)     # 운영사 수수료율 스냅샷 (%)
-    welfare_view_amount = Column(Float, default=0.0)   # 복지회에 보이는 금액
-    welfare_fee_rate = Column(Float, default=0.0)      # 복지회 수수료율 스냅샷 (%)
-    branch_total_amount = Column(Float, default=0.0)   # 지점 수령 예정액
+    total_amount = Column(Float, default=0.0)          # 코어테일 매입 합계
+    welfare_fee_rate = Column(Float, default=0.0)      # 산정 당시 수수료율 스냅샷 (%)
+    branch_total_amount = Column(Float, default=0.0)   # 지점 수령 예정액 (수수료 차감 후)
     pricing_notes = Column(Text, default="")
     branch_confirmed = Column(Boolean, default=False)
     branch_confirmed_at = Column(DateTime, nullable=True)
-    buyer_paid = Column(Boolean, default=False)
-    buyer_paid_at = Column(DateTime, nullable=True)
-    operator_paid = Column(Boolean, default=False)
-    operator_paid_at = Column(DateTime, nullable=True)
     welfare_confirmed = Column(Boolean, default=False)
     welfare_confirmed_at = Column(DateTime, nullable=True)
     payment_date = Column(String(20), default="")
@@ -152,16 +146,12 @@ class AssetPriceRef(Base):
     """모델명 기반 가견적 기준가 참조 테이블"""
     __tablename__ = "asset_price_refs"
 
-    id            = Column(Integer, primary_key=True, index=True)
-    category      = Column(String(20), nullable=False, index=True)
-    model_code    = Column(String(100), default="")
-    model_display = Column(String(300), default="")
-    keywords      = Column(String(500), default="")
-    mem_spec      = Column(String(100), default="")
-    os_spec       = Column(String(100), default="")
-    base_price    = Column(Integer, default=0)
-    is_active     = Column(Boolean, default=True)
-    updated_at    = Column(DateTime, default=datetime.now)
+    id = Column(Integer, primary_key=True)
+    category = Column(String(20), nullable=False, index=True)
+    model_display = Column(String(200), default="")
+    keywords = Column(String(500), default="")   # 쉼표 구분 검색 키워드
+    base_price = Column(Integer, default=0)      # 가견적 기준 단가 (원)
+    updated_at = Column(DateTime, default=datetime.now)
 
 
 class SystemConfig(Base):

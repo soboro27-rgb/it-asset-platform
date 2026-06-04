@@ -12,7 +12,7 @@ from io import BytesIO
 
 router = APIRouter()
 
-ROLE_LABEL = {"branch": "지점 담당자", "welfare": "주관사", "operator": "운영사", "coretail": "매입사"}
+ROLE_LABEL = {"branch": "지점 담당자", "welfare": "주관사", "coretail": "운영사(코어테일)"}
 
 
 def _check(request: Request):
@@ -68,8 +68,8 @@ async def create_user(request: Request, db: Session = Depends(get_db)):
     region = form.get("region", "").strip()
     role = form.get("role", "branch")
 
-    # branch 외 역할은 operator 또는 coretail만 생성 가능
-    if role in ("welfare", "coretail", "operator") and user["role"] not in ("coretail", "operator"):
+    # welfare는 branch만 생성 가능
+    if role in ("welfare", "coretail") and user["role"] != "coretail":
         role = "branch"
 
     if not branch_code or not password or not branch_name:
@@ -106,7 +106,7 @@ async def reset_password(request: Request, user_id: int, db: Session = Depends(g
     current_user, redir = _check(request)
     if redir:
         return redir
-    if current_user["role"] not in ("coretail", "operator"):
+    if current_user["role"] != "coretail":
         return RedirectResponse("/admin/users", status_code=302)
 
     form = await request.form()
@@ -243,11 +243,11 @@ async def bulk_upload(request: Request, file: UploadFile = File(...), db: Sessio
             failed.append({"code": branch_code or "(빈칸)", "reason": "필수 항목 누락"})
             continue
 
-        if role not in ("branch", "welfare", "coretail", "operator"):
+        if role not in ("branch", "welfare", "coretail"):
             role = "branch"
 
-        if role in ("welfare", "coretail", "operator") and user["role"] not in ("coretail", "operator"):
-            failed.append({"code": branch_code, "reason": "권한 없음 (관리자급 계정은 운영사/매입사만 생성 가능)"})
+        if role in ("welfare", "coretail") and user["role"] != "coretail":
+            failed.append({"code": branch_code, "reason": "권한 없음 (welfare/coretail은 코어테일만 생성 가능)"})
             continue
 
         existing = db.query(models.User).filter(models.User.branch_code == branch_code).first()

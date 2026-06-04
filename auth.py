@@ -32,6 +32,6 @@ def require_branch(request: Request):
 
 def require_admin(request: Request):
     user = get_session_user(request)
-    if not user or user["role"] not in ("coretail", "welfare", "operator"):
+    if not user or user["role"] not in ("coretail", "welfare"):
         return None
     return user

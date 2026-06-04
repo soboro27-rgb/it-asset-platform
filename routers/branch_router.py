@@ -1,4 +1,8 @@
 import os
+import re
+import json
+import urllib.request
+import urllib.parse
 from pathlib import Path
 from fastapi import APIRouter, Request, Depends, UploadFile, File
 from fastapi.responses import RedirectResponse, HTMLResponse, StreamingResponse, JSONResponse, FileResponse
@@ -7,11 +11,47 @@ from database import get_db
 import models
 from auth import require_branch
 from config import templates
-from datetime import datetime
+from datetime import datetime, date as _date
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 from io import BytesIO
+from pricing import estimate_unit_price, estimate_items
+
+
+def _extract_year(raw) -> int | None:
+    """취득일/제조연도 값에서 연도 추출.
+    지원 형식: datetime객체, YYYY-MM-DD, YYYY/MM/DD, YYYY.MM.DD, YYYYMMDD, YYYY
+    """
+    if raw is None:
+        return None
+    if isinstance(raw, (datetime, _date)):
+        return raw.year
+    raw_str = str(raw).strip()
+    if not raw_str:
+        return None
+    # 구분자 있는 날짜 형식
+    for sep in ("-", "/", "."):
+        if sep in raw_str:
+            try:
+                year = int(raw_str.split(sep)[0])
+                if 1990 <= year <= 2030:
+                    return year
+            except (ValueError, IndexError):
+                pass
+    # YYYYMMDD (8자리)
+    if len(raw_str) == 8 and raw_str.isdigit():
+        year = int(raw_str[:4])
+        if 1990 <= year <= 2030:
+            return year
+    # 연도만 (4자리)
+    try:
+        year = int(raw_str)
+        if 1990 <= year <= 2030:
+            return year
+    except ValueError:
+        pass
+    return None
 
 
 def _make_thin_border():
@@ -84,51 +124,53 @@ async def create_application(request: Request, db: Session = Depends(get_db)):
     db.add(app)
     db.flush()
 
-    categories      = form.getlist("category[]")
-    model_names     = form.getlist("model_name[]")
-    manufacturers   = form.getlist("manufacturer[]")
-    years           = form.getlist("manufacture_year[]")
-    quantities      = form.getlist("quantity[]")
-    conditions      = form.getlist("condition[]")
-    descriptions    = form.getlist("description[]")
-    memory_specs    = form.getlist("memory_spec[]")
-    storage_specs   = form.getlist("storage_spec[]")
-    data_wipeds     = form.getlist("data_wiped[]")
-    has_adapters    = form.getlist("has_adapter[]")
-    est_prices      = form.getlist("estimated_unit_price[]")
+    categories = form.getlist("category[]")
+    model_names = form.getlist("model_name[]")
+    manufacturers = form.getlist("manufacturer[]")
+    years = form.getlist("manufacture_year[]")
+    quantities = form.getlist("quantity[]")
+    conditions = form.getlist("condition[]")
+    descriptions = form.getlist("description[]")
+    memory_specs = form.getlist("memory_spec[]")
+    storage_specs = form.getlist("storage_spec[]")
+    data_wipeds = form.getlist("data_wiped[]")
+    has_adapters = form.getlist("has_adapter[]")
 
+    total_estimated = 0.0
     for i, cat in enumerate(categories):
         if not cat:
             continue
-        try:
-            year = int(years[i]) if i < len(years) and years[i] else None
-        except ValueError:
-            year = None
+        year = _extract_year(years[i]) if i < len(years) and years[i] else None
         try:
             qty = int(quantities[i]) if i < len(quantities) and quantities[i] else 1
         except ValueError:
             qty = 1
-        try:
-            est_price = float(est_prices[i]) if i < len(est_prices) and est_prices[i] else 0.0
-        except ValueError:
-            est_price = 0.0
+
+        cond = conditions[i] if i < len(conditions) else "중"
+        mname = model_names[i] if i < len(model_names) else ""
+        mem = memory_specs[i] if i < len(memory_specs) else ""
+        stg = storage_specs[i] if i < len(storage_specs) else ""
+        est_unit = estimate_unit_price(cat, mname, year, cond, memory_spec=mem, storage_spec=stg, db=db)
 
         item = models.AssetItem(
             application_id=app.id,
             category=cat,
-            model_name=model_names[i] if i < len(model_names) else "",
+            model_name=mname,
             manufacturer=manufacturers[i] if i < len(manufacturers) else "",
             manufacture_year=year,
             quantity=qty,
-            condition=conditions[i] if i < len(conditions) else "중",
+            condition=cond,
             description=descriptions[i] if i < len(descriptions) else "",
             memory_spec=memory_specs[i] if i < len(memory_specs) else "",
             storage_spec=storage_specs[i] if i < len(storage_specs) else "",
             data_wiped=data_wipeds[i] if i < len(data_wipeds) else "",
             has_adapter=has_adapters[i] if i < len(has_adapters) else "",
-            estimated_unit_price=est_price,
+            estimated_unit_price=float(est_unit),
         )
         db.add(item)
+        total_estimated += est_unit * qty
+
+    app.estimated_price = total_estimated
 
     action = form.get("action", "draft")
     if action == "submit" and categories:
@@ -289,11 +331,11 @@ def download_asset_template(request: Request):
     header_fill = PatternFill(start_color="005B30", end_color="005B30", fill_type="solid")
     header_font = Font(color="FFFFFF", bold=True, size=11)
 
-    headers = ["카테고리*", "모델명", "제조사", "제조연도", "수량*", "상태", "비고",
+    # 취득일(D열)은 날짜 or 연도 형식 모두 허용
+    headers = ["카테고리*", "모델명", "제조사", "취득일", "수량*", "상태", "비고",
                "메모리사양", "저장장치사양", "데이터삭제", "아답터"]
-    col_widths = [16, 22, 16, 12, 8, 8, 24, 16, 16, 14, 10]
+    col_widths = [16, 22, 16, 14, 8, 8, 24, 16, 16, 14, 10]
 
-    pc_nb_fill = PatternFill(start_color="E8F5E9", end_color="E8F5E9", fill_type="solid")
     for col_idx, (header, width) in enumerate(zip(headers, col_widths), 1):
         cell = ws.cell(row=1, column=col_idx, value=header)
         cell.font = header_font
@@ -308,9 +350,9 @@ def download_asset_template(request: Request):
 
     example_fill = PatternFill(start_color="F0F7F2", end_color="F0F7F2", fill_type="solid")
     examples = [
-        ["PC", "ThinkPad X1 Carbon", "Lenovo", 2020, 2, "중", "배터리 불량", "16GB DDR4", "512GB SSD", "파쇄완료", ""],
-        ["노트북", "EliteBook 840 G6", "HP", 2019, 1, "하", "화면 미세 흠집", "8GB DDR4", "256GB SSD", "블랑코완료", "있음"],
-        ["프린터", "LaserJet Pro M404n", "HP", 2021, 3, "상", "", "", "", "", ""],
+        ["PC", "ThinkPad X1 Carbon", "Lenovo", "2020-03-15", 2, "중", "배터리 불량", "16GB DDR4", "512GB SSD", "파쇄완료", ""],
+        ["노트북", "EliteBook 840 G6", "HP", "2019-07-01", 1, "하", "화면 미세 흠집", "8GB DDR4", "256GB SSD", "블랑코완료", "있음"],
+        ["프린터", "LaserJet Pro M404n", "HP", "2021", 3, "상", "", "", "", "", ""],
     ]
     for row_idx, row_data in enumerate(examples, 2):
         for col_idx, value in enumerate(row_data, 1):
@@ -322,9 +364,9 @@ def download_asset_template(request: Request):
     ws2["A1"].font = Font(bold=True, size=13)
     notes = [
         ("카테고리*", f"필수. 다음 중 하나: {', '.join(VALID_CATEGORIES)}"),
-        ("모델명", "장비 모델명 (예: ThinkPad X1 Carbon)"),
+        ("모델명", "장비 모델명 (예: ThinkPad X1 Carbon). 가견적 정확도 향상에 도움."),
         ("제조사", "제조사명 (예: Lenovo, HP, Samsung). 비워도 됨."),
-        ("제조연도", "4자리 연도 (예: 2020). 비워도 됨."),
+        ("취득일", "구매·취득 일자. YYYY-MM-DD / YYYY/MM/DD / YYYYMMDD / YYYY 형식 모두 허용. 가견적 연식 계산에 사용."),
         ("수량*", "필수. 1 이상의 정수. 비우면 1로 처리."),
         ("상태", "상/중/하 중 하나. 비우면 '중' 처리."),
         ("비고", "특이사항 (예: 배터리 불량, 화면 흠집 등). 비워도 됨."),
@@ -338,7 +380,7 @@ def download_asset_template(request: Request):
         ws2[f"A{i}"].font = Font(bold=True)
         ws2[f"B{i}"] = desc
     ws2.column_dimensions["A"].width = 16
-    ws2.column_dimensions["B"].width = 65
+    ws2.column_dimensions["B"].width = 70
 
     output = BytesIO()
     wb.save(output)
@@ -351,8 +393,120 @@ def download_asset_template(request: Request):
     )
 
 
+@router.post("/assets/estimate")
+async def estimate_asset_prices(request: Request, db: Session = Depends(get_db)):
+    """실시간 가견적 산출 API"""
+    user, redir = _check(request)
+    if redir:
+        return JSONResponse({"error": "로그인이 필요합니다."}, status_code=401)
+
+    try:
+        data = await request.json()
+    except Exception:
+        return JSONResponse({"error": "잘못된 요청입니다."}, status_code=400)
+
+    items = data.get("items", [])
+    result = estimate_items(items, db=db)
+    return JSONResponse(result)
+
+
+def _strip_html(text: str) -> str:
+    text = re.sub(r'<[^>]+>', ' ', text)
+    text = re.sub(r'&[a-z]+;', ' ', text)
+    return re.sub(r'\s+', ' ', text).strip()
+
+def _extract_cpu(text: str) -> str | None:
+    m = re.search(r'\bi([3579])[- ]?(\d{3,5}[a-zA-Z0-9]*)', text, re.IGNORECASE)
+    if m:
+        return f"i{m.group(1)}-{m.group(2).upper()}"
+    m = re.search(r'(?:코어\s*|인텔\s*)?i([3579])[- ]?\s*(\d+)세대', text, re.IGNORECASE)
+    if m:
+        return f"i{m.group(1)}({m.group(2)}세대)"
+    return None
+
+def _extract_ram(text: str) -> str | None:
+    m = re.search(r'\b(\d+)\s*GB(?:\s*(?:LPDDR|DDR)\d*[Xx]?\d*)?', text, re.IGNORECASE)
+    if m:
+        val = int(m.group(1))
+        if val <= 128:
+            return f"{val}GB"
+    return None
+
+def _extract_storage(text: str) -> str | None:
+    m = re.search(r'\b(\d+)\s*(TB|GB)\s*(?:SSD|NVMe|HDD|eMMC)', text, re.IGNORECASE)
+    if m:
+        val, unit = int(m.group(1)), m.group(2).upper()
+        if unit == "TB":
+            return f"{val}TB SSD"
+        if val >= 128:
+            return f"{val}GB SSD"
+    return None
+
+def _parse_intel_gen(model_num: str) -> int | None:
+    digits = re.sub(r'[^0-9]', '', model_num)
+    if len(digits) >= 5:
+        return int(digits[:2])
+    if len(digits) == 4:
+        return int(digits[0])
+    if len(digits) == 3:
+        return int(digits[0])
+    return None
+
+def _cpu_generation_label(cpu_str: str) -> str | None:
+    m = re.search(r'i([3579]).*?\((\d+)세대\)', cpu_str, re.IGNORECASE)
+    if m:
+        return f"i{m.group(1)} {m.group(2)}세대"
+    m = re.search(r'i([3579])[- ]?(\d{3,5}[a-zA-Z0-9]*)', cpu_str, re.IGNORECASE)
+    if m:
+        gen = _parse_intel_gen(m.group(2))
+        if gen and 1 <= gen <= 20:
+            return f"i{m.group(1)} {gen}세대"
+    return None
+
+
+@router.get("/assets/model-lookup")
+async def model_lookup(request: Request, q: str = "", category: str = ""):
+    user, redir = _check(request)
+    if redir:
+        return JSONResponse({"error": "로그인이 필요합니다."}, status_code=401)
+
+    if len(q.strip()) < 3:
+        return JSONResponse({"error": "모델명을 3자 이상 입력하세요."}, status_code=400)
+
+    client_id = os.environ.get("NAVER_CLIENT_ID", "")
+    client_secret = os.environ.get("NAVER_CLIENT_SECRET", "")
+
+    if not client_id or not client_secret:
+        return JSONResponse({"error": "NAVER API 키가 설정되지 않았습니다."}, status_code=503)
+
+    query = urllib.parse.quote(f"{q.strip()} CPU 스펙 사양")
+    url = f"https://openapi.naver.com/v1/search/webkr.json?query={query}&display=5"
+    req = urllib.request.Request(url, headers={
+        "X-Naver-Client-Id": client_id,
+        "X-Naver-Client-Secret": client_secret,
+    })
+    try:
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+    except Exception:
+        return JSONResponse({"cpu": None, "ram": None, "storage": None, "gen_label": None})
+
+    texts = []
+    for item in data.get("items", []):
+        texts.append(_strip_html(item.get("title", "")))
+        texts.append(_strip_html(item.get("description", "")))
+    combined = " ".join(texts)
+
+    cpu = _extract_cpu(combined)
+    ram = _extract_ram(combined)
+    storage = _extract_storage(combined)
+    gen_label = _cpu_generation_label(cpu) if cpu else None
+
+    return JSONResponse({"cpu": cpu, "ram": ram, "storage": storage, "gen_label": gen_label})
+
+
 @router.post("/assets/parse-excel")
-async def parse_asset_excel(request: Request, file: UploadFile = File(...)):
+async def parse_asset_excel(request: Request, file: UploadFile = File(...), db: Session = Depends(get_db)):
     user, redir = _check(request)
     if redir:
         return JSONResponse({"error": "로그인이 필요합니다."}, status_code=401)
@@ -374,10 +528,10 @@ async def parse_asset_excel(request: Request, file: UploadFile = File(...)):
         category = str(row[0]).strip() if row[0] is not None else ""
         model_name = str(row[1]).strip() if row[1] is not None else ""
         manufacturer = str(row[2]).strip() if row[2] is not None else ""
-        manufacture_year_raw = row[3]
-        quantity_raw = row[4]
-        condition = str(row[5]).strip() if row[5] is not None else ""
-        description = str(row[6]).strip() if row[6] is not None else ""
+        acquisition_date_raw = row[3] if len(row) > 3 else None   # 취득일 (날짜 or 연도)
+        quantity_raw = row[4] if len(row) > 4 else None
+        condition = str(row[5]).strip() if len(row) > 5 and row[5] is not None else ""
+        description = str(row[6]).strip() if len(row) > 6 and row[6] is not None else ""
         memory_spec = str(row[7]).strip() if len(row) > 7 and row[7] is not None else ""
         storage_spec = str(row[8]).strip() if len(row) > 8 and row[8] is not None else ""
         data_wiped_raw = str(row[9]).strip() if len(row) > 9 and row[9] is not None else ""
@@ -390,15 +544,10 @@ async def parse_asset_excel(request: Request, file: UploadFile = File(...)):
             errors.append(f"{row_num}행: 카테고리 '{category}'가 올바르지 않습니다. ({', '.join(VALID_CATEGORIES)} 중 하나여야 합니다)")
             continue
 
-        manufacture_year = None
-        if manufacture_year_raw is not None and str(manufacture_year_raw).strip():
-            try:
-                manufacture_year = int(manufacture_year_raw)
-                if not (1990 <= manufacture_year <= 2030):
-                    errors.append(f"{row_num}행: 제조연도 {manufacture_year}이 유효하지 않습니다. (1990~2030)")
-                    manufacture_year = None
-            except (ValueError, TypeError):
-                errors.append(f"{row_num}행: 제조연도가 올바른 숫자가 아닙니다.")
+        # 취득일 → 연도 추출 (가견적 C2 연식 계수 계산에 사용)
+        manufacture_year = _extract_year(acquisition_date_raw)
+        if acquisition_date_raw is not None and str(acquisition_date_raw).strip() and manufacture_year is None:
+            errors.append(f"{row_num}행: 취득일 '{acquisition_date_raw}' 형식을 인식할 수 없습니다. (YYYY-MM-DD / YYYY/MM/DD / YYYY 형식 사용)")
 
         quantity = 1
         if quantity_raw is not None and str(quantity_raw).strip():
@@ -418,6 +567,8 @@ async def parse_asset_excel(request: Request, file: UploadFile = File(...)):
         data_wiped = data_wiped_raw if data_wiped_raw in VALID_DATA_WIPED else ""
         has_adapter = has_adapter_raw if has_adapter_raw in VALID_ADAPTER else ""
 
+        est_unit = estimate_unit_price(category, model_name, manufacture_year, condition,
+                                       memory_spec=memory_spec, storage_spec=storage_spec, db=db)
         items.append({
             "category": category,
             "model_name": model_name,
@@ -430,6 +581,7 @@ async def parse_asset_excel(request: Request, file: UploadFile = File(...)):
             "storage_spec": storage_spec,
             "data_wiped": data_wiped,
             "has_adapter": has_adapter,
+            "estimated_unit_price": est_unit,
         })
 
     return JSONResponse({"items": items, "errors": errors})
