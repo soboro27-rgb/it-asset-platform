@@ -1206,6 +1206,144 @@ def settlement_page(request: Request, month: str = "", db: Session = Depends(get
     )
 
 
+@router.get("/settlement/export")
+def settlement_export(request: Request, month: str = "", db: Session = Depends(get_db)):
+    user, redir = _check(request)
+    if redir:
+        return redir
+
+    if not month:
+        month = datetime.now().strftime("%Y-%m")
+
+    apps = (
+        db.query(models.Application)
+        .join(models.Settlement)
+        .filter(
+            models.Application.status == "completed",
+            models.Settlement.payment_date.like(f"{month}-%"),
+        )
+        .order_by(models.Settlement.payment_date)
+        .all()
+    )
+
+    total_count = len(apps)
+    total_amount = sum(a.settlement.branch_total_amount for a in apps if a.settlement)
+
+    detail_rows = []
+    for app in apps:
+        if not app.settlement:
+            continue
+        cat_data: dict = {}
+        for asset in app.assets:
+            cat = asset.category
+            if cat not in cat_data:
+                cat_data[cat] = {"qty": 0, "amount": 0.0}
+            cat_data[cat]["qty"] += asset.quantity
+            cat_data[cat]["amount"] += asset.unit_price * asset.quantity
+        for cat, data in cat_data.items():
+            detail_rows.append({
+                "date": app.settlement.payment_date,
+                "business_no": getattr(app.user, "business_no", "") or "-",
+                "branch_name": app.user.branch_name,
+                "category": cat,
+                "quantity": data["qty"],
+                "amount": data["amount"],
+            })
+
+    wb = openpyxl.Workbook()
+    ws_sum = wb.active
+    ws_sum.title = "요약"
+    ws_det = wb.create_sheet("상세내역")
+
+    mg_fill  = PatternFill(start_color="006633", end_color="006633", fill_type="solid")
+    mg_font  = Font(color="FFFFFF", bold=True, size=11)
+    lbl_fill = PatternFill(start_color="EDF7F2", end_color="EDF7F2", fill_type="solid")
+    lbl_font = Font(bold=True, size=10)
+    tb       = Border(
+        left=Side(style="thin"), right=Side(style="thin"),
+        top=Side(style="thin"), bottom=Side(style="thin"),
+    )
+    C = Alignment(horizontal="center", vertical="center")
+    L = Alignment(horizontal="left",   vertical="center")
+    R = Alignment(horizontal="right",  vertical="center")
+
+    # ── 요약 시트 ──────────────────────────────────────────
+    ws_sum.column_dimensions["A"].width = 3
+    for col, w in zip("BCDE", [20, 16, 20, 3]):
+        ws_sum.column_dimensions[col].width = w
+
+    ws_sum.merge_cells("B2:E2")
+    ws_sum["B2"].value = f"{month[:4]}년 {month[5:7]}월 정산 요약"
+    ws_sum["B2"].font  = Font(bold=True, size=14, color="006633")
+    ws_sum["B2"].alignment = C
+    ws_sum.row_dimensions[2].height = 30
+
+    for col, hdr in zip("BCD", ["구분", "건수", "매각금액"]):
+        c = ws_sum.cell(row=4, column=ord(col)-64, value=hdr)
+        c.font = mg_font; c.fill = mg_fill; c.alignment = C; c.border = tb
+    ws_sum.row_dimensions[4].height = 20
+
+    for col, val, fmt in [
+        (2, f"{month[:4]}년 {month[5:7]}월 정산", None),
+        (3, total_count, None),
+        (4, total_amount, "#,##0"),
+    ]:
+        c = ws_sum.cell(row=5, column=col, value=val)
+        c.border = tb; c.alignment = C; c.font = Font(size=10)
+        if fmt:
+            c.number_format = fmt
+    ws_sum.row_dimensions[5].height = 20
+
+    # ── 상세 시트 ──────────────────────────────────────────
+    ws_det.column_dimensions["A"].width = 3
+    det_cols = ["B","C","D","E","F","G"]
+    for col, w in zip(det_cols, [14, 18, 20, 14, 10, 18]):
+        ws_det.column_dimensions[col].width = w
+
+    ws_det.merge_cells("B2:G2")
+    ws_det["B2"].value = f"{month[:4]}년 {month[5:7]}월 정산 상세내역"
+    ws_det["B2"].font  = Font(bold=True, size=14, color="006633")
+    ws_det["B2"].alignment = C
+    ws_det.row_dimensions[2].height = 30
+
+    hdrs = ["일자", "사업자번호", "지점명", "품목", "수량", "금액"]
+    for col, hdr in zip(det_cols, hdrs):
+        c = ws_det[f"{col}4"]
+        c.value = hdr; c.font = mg_font; c.fill = mg_fill
+        c.alignment = C; c.border = tb
+    ws_det.row_dimensions[4].height = 20
+
+    for r_idx, row in enumerate(detail_rows, start=5):
+        vals = [row["date"], row["business_no"], row["branch_name"],
+                row["category"], row["quantity"], row["amount"]]
+        for col, val in zip(det_cols, vals):
+            c = ws_det[f"{col}{r_idx}"]
+            c.value = val; c.border = tb; c.font = Font(size=10)
+            c.alignment = C if col not in ("C","D") else L
+        ws_det[f"F{r_idx}"].number_format = "#,##0"
+        ws_det.row_dimensions[r_idx].height = 18
+
+    tot_r = len(detail_rows) + 5
+    ws_det.merge_cells(start_row=tot_r, start_column=2, end_row=tot_r, end_column=5)
+    c = ws_det.cell(row=tot_r, column=2, value="합  계")
+    c.font = Font(bold=True, size=10); c.border = tb; c.alignment = C
+    c = ws_det.cell(row=tot_r, column=6, value=sum(r["amount"] for r in detail_rows))
+    c.font = Font(bold=True, size=10, color="006633")
+    c.number_format = "#,##0"; c.border = tb; c.alignment = C
+    ws_det.row_dimensions[tot_r].height = 22
+
+    out = BytesIO()
+    wb.save(out)
+    out.seek(0)
+
+    fname = f"정산내역_{month}.xlsx"
+    return StreamingResponse(
+        out,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{fname}"},
+    )
+
+
 @router.post("/price-refs/{ref_id}/delete")
 def price_ref_delete(request: Request, ref_id: int, db: Session = Depends(get_db)):
     user, redir = _check(request)
