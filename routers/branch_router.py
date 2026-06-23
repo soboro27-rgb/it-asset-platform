@@ -226,6 +226,156 @@ def confirm_price(request: Request, app_id: int, db: Session = Depends(get_db)):
     return RedirectResponse(f"/branch/applications/{app_id}", status_code=302)
 
 
+@router.get("/applications/{app_id}/report/tax-invoice")
+def download_tax_invoice(request: Request, app_id: int, db: Session = Depends(get_db)):
+    user, redir = _check(request)
+    if redir:
+        return redir
+
+    app = db.query(models.Application).filter(
+        models.Application.id == app_id,
+        models.Application.user_id == user["user_id"],
+    ).first()
+    if not app or app.status not in ("branch_confirmed", "completed"):
+        return RedirectResponse(f"/branch/applications/{app_id}", status_code=302)
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "세금계산서"
+
+    tb = Border(
+        left=Side(style="thin"), right=Side(style="thin"),
+        top=Side(style="thin"), bottom=Side(style="thin"),
+    )
+    C = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    L = Alignment(horizontal="left", vertical="center", wrap_text=True)
+
+    for i, w in enumerate([3, 14, 16, 14, 16, 14, 3], 1):
+        ws.column_dimensions[get_column_letter(i)].width = w
+
+    hdr_fill = PatternFill(start_color="006633", end_color="006633", fill_type="solid")
+    hdr_font = Font(color="FFFFFF", bold=True, size=13)
+    lbl_fill = PatternFill(start_color="EDF7F2", end_color="EDF7F2", fill_type="solid")
+    lbl_font = Font(bold=True, size=10)
+
+    ws.merge_cells("B2:F2")
+    ws["B2"].value = "세  금  계  산  서"
+    ws["B2"].font = Font(bold=True, size=18)
+    ws["B2"].alignment = C
+    ws["B2"].fill = hdr_fill
+    ws["B2"].font = hdr_font
+    ws.row_dimensions[2].height = 34
+
+    ws.row_dimensions[3].height = 8
+
+    # 공급자 / 공급받는자 헤더
+    for col, val in [(2, "공  급  자"), (5, "공 급 받 는 자")]:
+        ws.cell(row=4, column=col, value=val).font = Font(bold=True, size=10, color="006633")
+        ws.cell(row=4, column=col).alignment = C
+    ws.row_dimensions[4].height = 18
+
+    supply_rows = [
+        ("상호명", app.user.branch_name, "상호명", "새마을금고복지회"),
+        ("사업자번호", getattr(app.user, "business_no", "") or "-", "사업자번호", "109-82-05569"),
+        ("대표자", getattr(app.user, "manager_name", "") or "-", "대표자", "박경조"),
+        ("주소", getattr(app.user, "branch_address", "") or "-", "주소", "서울 마포구 양화로 106"),
+    ]
+    for idx, (lbl1, val1, lbl2, val2) in enumerate(supply_rows):
+        r = 5 + idx
+        ws.cell(row=r, column=2, value=f"  {lbl1}").font = lbl_font
+        ws.cell(row=r, column=2).fill = lbl_fill
+        ws.cell(row=r, column=2).border = tb
+        ws.cell(row=r, column=3, value=val1).border = tb
+        ws.cell(row=r, column=3).alignment = L
+        ws.cell(row=r, column=3).font = Font(size=10)
+        ws.cell(row=r, column=5, value=f"  {lbl2}").font = lbl_font
+        ws.cell(row=r, column=5).fill = lbl_fill
+        ws.cell(row=r, column=5).border = tb
+        ws.cell(row=r, column=6, value=val2).border = tb
+        ws.cell(row=r, column=6).alignment = L
+        ws.cell(row=r, column=6).font = Font(size=10)
+        ws.row_dimensions[r].height = 18
+
+    ws.row_dimensions[9].height = 10
+
+    # 품목 헤더
+    item_hdrs = ["품목", "수량", "단가", "공급가액", "세액", "합계"]
+    item_cols = [2, 3, 4, 5, 6, 7]  # B~G
+    item_fill = PatternFill(start_color="37474F", end_color="37474F", fill_type="solid")
+    item_font = Font(color="FFFFFF", bold=True, size=10)
+    for col, hdr in zip(item_cols, item_hdrs):
+        c = ws.cell(row=10, column=col, value=hdr)
+        c.font = item_font; c.fill = item_fill; c.alignment = C; c.border = tb
+    ws.row_dimensions[10].height = 20
+
+    # 품목 행
+    total_supply = 0.0
+    r = 11
+    for asset in app.assets:
+        supply = asset.unit_price * asset.quantity
+        total_supply += supply
+        tax = int(supply * 0.1)
+        ws.cell(row=r, column=2, value=f"{asset.category} ({asset.model_name or '-'})").border = tb
+        ws.cell(row=r, column=2).font = Font(size=10)
+        ws.cell(row=r, column=3, value=asset.quantity).border = tb
+        ws.cell(row=r, column=3).alignment = C
+        ws.cell(row=r, column=3).font = Font(size=10)
+        ws.cell(row=r, column=4, value=int(asset.unit_price)).border = tb
+        ws.cell(row=r, column=4).alignment = C
+        ws.cell(row=r, column=4).number_format = "#,##0"
+        ws.cell(row=r, column=5, value=int(supply)).border = tb
+        ws.cell(row=r, column=5).alignment = C
+        ws.cell(row=r, column=5).number_format = "#,##0"
+        ws.cell(row=r, column=6, value=tax).border = tb
+        ws.cell(row=r, column=6).alignment = C
+        ws.cell(row=r, column=6).number_format = "#,##0"
+        ws.cell(row=r, column=7, value=int(supply + tax)).border = tb
+        ws.cell(row=r, column=7).alignment = C
+        ws.cell(row=r, column=7).number_format = "#,##0"
+        ws.row_dimensions[r].height = 18
+        r += 1
+
+    # 합계 행
+    tax_total = int(total_supply * 0.1)
+    total_all = int(total_supply + tax_total)
+    ws.merge_cells(start_row=r, start_column=2, end_row=r, end_column=4)
+    ws.cell(row=r, column=2, value="합  계").font = Font(bold=True, size=10)
+    ws.cell(row=r, column=2).alignment = C
+    ws.cell(row=r, column=2).border = tb
+    ws.cell(row=r, column=5, value=int(total_supply)).font = Font(bold=True, size=10)
+    ws.cell(row=r, column=5).alignment = C
+    ws.cell(row=r, column=5).border = tb
+    ws.cell(row=r, column=5).number_format = "#,##0"
+    ws.cell(row=r, column=6, value=tax_total).font = Font(bold=True, size=10)
+    ws.cell(row=r, column=6).alignment = C
+    ws.cell(row=r, column=6).border = tb
+    ws.cell(row=r, column=6).number_format = "#,##0"
+    ws.cell(row=r, column=7, value=total_all).font = Font(bold=True, size=10, color="006633")
+    ws.cell(row=r, column=7).alignment = C
+    ws.cell(row=r, column=7).border = tb
+    ws.cell(row=r, column=7).number_format = "#,##0"
+    ws.row_dimensions[r].height = 22
+
+    r += 2
+    ws.merge_cells(start_row=r, start_column=2, end_row=r, end_column=6)
+    ws.cell(row=r, column=2, value="※ 발행 이메일: jae-ho.choi@kfcc.co.kr  |  담당: 최재호 차장  02-3429-9720")
+    ws.cell(row=r, column=2).font = Font(size=9, color="888888")
+    ws.cell(row=r, column=2).alignment = L
+    ws.row_dimensions[r].height = 16
+
+    out = BytesIO()
+    wb.save(out)
+    out.seek(0)
+
+    date_str = datetime.now().strftime("%Y%m%d")
+    fname = f"세금계산서_{app.user.branch_name}_{date_str}.xlsx"
+    return StreamingResponse(
+        out,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{fname}"},
+    )
+
+
 @router.get("/applications/{app_id}/report/blancco")
 def branch_download_blancco(request: Request, app_id: int, db: Session = Depends(get_db)):
     user, redir = _check(request)

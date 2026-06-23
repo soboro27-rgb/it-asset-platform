@@ -77,7 +77,6 @@
               <th>제조연도</th>
               <th>수량</th>
               <th>상태</th>
-              <th class="text-end pe-3">가견적</th>
             </tr>
           </thead>
           <tbody>
@@ -105,34 +104,19 @@
                 {% elif item.condition == '중' %}<span class="badge bg-warning text-dark">중</span>
                 {% else %}<span class="badge bg-danger">하</span>{% endif %}
               </td>
-              <td class="text-end pe-3" style="font-size:12px;color:#198754;font-weight:600">
-                {% if item.estimated_unit_price and item.estimated_unit_price > 0 %}
-                  {{ "{:,.0f}".format(item.estimated_unit_price * item.quantity) }}원
-                {% else %}-{% endif %}
-              </td>
             </tr>
             {% endfor %}
           </tbody>
+          {% if app.status in ['priced','branch_confirmed','completed'] and app.settlement %}
           <tfoot class="table-light">
-            {% if app.estimated_price and app.estimated_price > 0 %}
-            <tr>
-              <td colspan="6" class="text-end ps-3" style="font-size:12px;color:#6c757d">
-                <i class="bi bi-calculator me-1"></i>가견적 합계
-              </td>
-              <td class="text-end pe-3 fw-bold" style="color:#198754;font-size:14px">
-                {{ "{:,.0f}".format(app.estimated_price) }}원
-              </td>
-            </tr>
-            {% endif %}
-            {% if app.status in ['priced','branch_confirmed','completed'] and app.settlement %}
             <tr>
               <td colspan="6" class="text-end fw-bold ps-3">수령 예정 금액</td>
-              <td class="fw-bold text-end pe-3" style="color:var(--mg);font-size:15px">
+              <td colspan="2" class="fw-bold" style="color:var(--mg);font-size:15px">
                 {{ "{:,.0f}".format(app.settlement.branch_total_amount) }}원
               </td>
             </tr>
-            {% endif %}
           </tfoot>
+          {% endif %}
         </table>
       </div>
     </div>
@@ -283,6 +267,33 @@
           <div style="font-size:22px;font-weight:700;color:var(--mg)">{{ "{:,.0f}".format(app.settlement.branch_total_amount) }}원</div>
         </div>
         {% endif %}
+      </div>
+    </div>
+
+    <!-- 세금계산서 발행 안내 -->
+    <div class="card mb-3">
+      <div class="card-header" style="font-size:13px">
+        <i class="bi bi-receipt me-2" style="color:var(--mg)"></i>세금계산서 발행 요청
+      </div>
+      <div class="card-body" style="font-size:12px">
+        <div class="mb-2 fw-semibold text-muted" style="font-size:11px;letter-spacing:.5px">사업자 정보</div>
+        <table class="table table-sm mb-3" style="font-size:12px">
+          <tr><td class="text-muted" style="width:100px">상호명</td><td class="fw-semibold">새마을금고복지회</td></tr>
+          <tr><td class="text-muted">사업자번호</td><td>109-82-05569</td></tr>
+          <tr><td class="text-muted">대표자</td><td>박경조</td></tr>
+          <tr><td class="text-muted">사업장</td><td>서울특별시 마포구 양화로 106<br/><span style="color:#aaa">(서교동, 새마을금고복지회)</span></td></tr>
+          <tr><td class="text-muted">발행 이메일</td><td><a href="mailto:jae-ho.choi@kfcc.co.kr" style="color:var(--mg)">jae-ho.choi@kfcc.co.kr</a></td></tr>
+        </table>
+        <div class="mb-2 fw-semibold text-muted" style="font-size:11px;letter-spacing:.5px">담당자 정보</div>
+        <div class="p-2 rounded mb-3" style="background:#f8f9fa;font-size:12px">
+          <i class="bi bi-person me-1"></i>최재호 차장&nbsp;&nbsp;
+          <i class="bi bi-telephone me-1 ms-2"></i>02-3429-9720
+        </div>
+        <a href="/branch/applications/{{ app.id }}/report/tax-invoice"
+           class="btn btn-sm w-100 fw-semibold"
+           style="background:var(--mg);color:#fff;font-size:12px">
+          <i class="bi bi-file-earmark-excel me-1"></i>세금계산서 다운로드
+        </a>
       </div>
     </div>
 
