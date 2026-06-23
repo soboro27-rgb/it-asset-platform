@@ -28,6 +28,10 @@ def user_list(request: Request, role: str = "", db: Session = Depends(get_db)):
     if redir:
         return redir
 
+    # 복지회 계정은 지점 담당자만 조회
+    if user["role"] == "welfare":
+        role = "branch"
+
     query = db.query(models.User)
     if role:
         query = query.filter(models.User.role == role)

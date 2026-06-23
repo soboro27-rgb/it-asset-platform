@@ -68,20 +68,19 @@
                    placeholder="지점 주소 입력"/>
           </div>
 
+          {% if session.get('role') in ['coretail','operator'] %}
           <div class="mb-4">
             <label class="form-label fw-semibold" style="font-size:13px">역할 *</label>
             <select name="role" class="form-select" style="font-size:13px">
               <option value="branch">지점 담당자 (branch)</option>
-              {% if session.get('role') in ['coretail','operator'] %}
               <option value="welfare">주관사 관리자 (welfare)</option>
               <option value="operator">운영사 관리자 (operator)</option>
               <option value="coretail">매입사 관리자 (coretail)</option>
-              {% endif %}
             </select>
-            {% if session.get('role') == 'welfare' %}
-            <div class="form-text text-warning">주관사 계정은 지점 담당자 계정만 생성 가능합니다.</div>
-            {% endif %}
           </div>
+          {% else %}
+          <input type="hidden" name="role" value="branch"/>
+          {% endif %}
 
           <div class="d-flex gap-2">
             <a href="/admin/users" class="btn btn-outline-secondary">취소</a>
