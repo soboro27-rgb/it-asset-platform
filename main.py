@@ -102,6 +102,17 @@ try:
 except Exception as _e:
     print(f"Migration warning (settlements): {_e}")
 
+# Migration: applications 테이블에 담당자/전화번호 컬럼 추가
+try:
+    _apcols = [c['name'] for c in _sa_inspect(engine).get_columns('applications')]
+    with engine.connect() as _c:
+        for _n, _d in [("contact_name", "VARCHAR(50) DEFAULT ''"), ("contact_phone", "VARCHAR(20) DEFAULT ''")]:
+            if _n not in _apcols:
+                _c.execute(text(f"ALTER TABLE applications ADD COLUMN {_n} {_d}"))
+        _c.commit()
+except Exception as _e:
+    print(f"Migration warning (applications contact): {_e}")
+
 # Migration: users 테이블에 사업자번호/담당자 정보 컬럼 추가
 try:
     _ucols = [c['name'] for c in _sa_inspect(engine).get_columns('users')]

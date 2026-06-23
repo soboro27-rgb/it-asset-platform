@@ -33,6 +33,8 @@ class Application(Base):
     # → collected → priced → branch_confirmed → completed
     title = Column(String(200), default="")
     notes = Column(Text, default="")
+    contact_name = Column(String(50), default="")   # 담당자 이름
+    contact_phone = Column(String(20), default="")  # 담당자 전화번호
     submitted_at = Column(DateTime, nullable=True)
     approved_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.now)
