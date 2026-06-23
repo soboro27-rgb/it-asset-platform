@@ -71,7 +71,7 @@ def migrate():
     db = SessionLocal()
     user = db.query(models.User).filter(models.User.branch_code == "CORETAIL01").first()
     if user:
-        user.password_hash = hash_password("계영근천재")
+        user.password_hash = hash_password("1144012")
         db.commit()
         print("  [migrate] CORETAIL01 비밀번호 업데이트 완료")
 
