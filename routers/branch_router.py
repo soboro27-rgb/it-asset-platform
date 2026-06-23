@@ -226,8 +226,8 @@ def confirm_price(request: Request, app_id: int, db: Session = Depends(get_db)):
     return RedirectResponse(f"/branch/applications/{app_id}", status_code=302)
 
 
-@router.get("/applications/{app_id}/report/tax-invoice")
-def download_tax_invoice(request: Request, app_id: int, db: Session = Depends(get_db)):
+@router.get("/applications/{app_id}/report/business-cert")
+def download_business_cert(request: Request, app_id: int, db: Session = Depends(get_db)):
     user, redir = _check(request)
     if redir:
         return redir
@@ -259,7 +259,7 @@ def download_tax_invoice(request: Request, app_id: int, db: Session = Depends(ge
     lbl_font = Font(bold=True, size=10)
 
     ws.merge_cells("B2:F2")
-    ws["B2"].value = "세  금  계  산  서"
+    ws["B2"].value = "사  업  자  등  록  증"
     ws["B2"].font = Font(bold=True, size=18)
     ws["B2"].alignment = C
     ws["B2"].fill = hdr_fill
@@ -368,7 +368,7 @@ def download_tax_invoice(request: Request, app_id: int, db: Session = Depends(ge
     out.seek(0)
 
     date_str = datetime.now().strftime("%Y%m%d")
-    fname = f"세금계산서_{app.user.branch_name}_{date_str}.xlsx"
+    fname = f"사업자등록증_새마을금고복지회_{date_str}.xlsx"
     return StreamingResponse(
         out,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
