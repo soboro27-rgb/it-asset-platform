@@ -155,8 +155,8 @@ def download_template(request: Request):
     header_fill = PatternFill(start_color="005B30", end_color="005B30", fill_type="solid")
     header_font = Font(color="FFFFFF", bold=True, size=11)
 
-    headers = ["지점코드(아이디)*", "비밀번호*", "지점명/이름*", "지역", "역할*"]
-    col_widths = [22, 18, 24, 14, 28]
+    headers = ["아이디(지점코드)*", "비밀번호*", "사업자번호", "지점명*", "이름(담당자)", "담당자 연락처", "지점주소", "역할*"]
+    col_widths = [20, 18, 18, 22, 16, 18, 30, 26]
 
     for col_idx, (header, width) in enumerate(zip(headers, col_widths), 1):
         cell = ws.cell(row=1, column=col_idx, value=header)
@@ -168,9 +168,9 @@ def download_template(request: Request):
 
     example_fill = PatternFill(start_color="F0F7F2", end_color="F0F7F2", fill_type="solid")
     examples = [
-        ["MG011", "Branch!2024", "서울중구지점", "서울", "branch"],
-        ["MG012", "Branch!2024", "부산중구지점", "부산", "branch"],
-        ["WELFARE02", "Welfare!2024", "주관사관리자2", "전국", "welfare"],
+        ["MG011", "Branch!2024", "000-00-00001", "서울중구지점", "홍길동", "010-1234-5678", "서울특별시 중구 세종대로 1", "branch"],
+        ["MG012", "Branch!2024", "000-00-00002", "부산중구지점", "김철수", "010-9876-5432", "부산광역시 중구 중앙대로 1", "branch"],
+        ["WELFARE02", "Welfare!2024", "", "주관사관리자2", "이영희", "02-0000-0000", "", "welfare"],
     ]
     for row_idx, row_data in enumerate(examples, 2):
         for col_idx, value in enumerate(row_data, 1):
@@ -182,18 +182,21 @@ def download_template(request: Request):
     ws2["A1"] = "작성 요령"
     ws2["A1"].font = Font(bold=True, size=13)
     notes = [
-        ("지점코드(아이디)", "로그인 ID. 영문+숫자 조합 권장. 중복 불가."),
-        ("비밀번호", "초기 비밀번호. 영문+숫자+특수문자 조합 권장."),
-        ("지점명/이름", "지점명 또는 담당자/기관 이름."),
-        ("지역", "지역명 (서울, 부산 등). 비워도 됨."),
-        ("역할", "branch = 지점 담당자 / welfare = 주관사 관리자 / coretail = 운영사 관리자"),
+        ("아이디(지점코드)*", "로그인 ID. 영문+숫자 조합 권장. 중복 불가. 필수."),
+        ("비밀번호*", "초기 비밀번호. 영문+숫자+특수문자 조합 권장. 필수."),
+        ("사업자번호", "예) 000-00-00000. 비워도 됨."),
+        ("지점명*", "지점 명칭. 필수."),
+        ("이름(담당자)", "담당자 성명. 비워도 됨."),
+        ("담당자 연락처", "예) 010-0000-0000. 비워도 됨."),
+        ("지점주소", "지점 주소. 비워도 됨."),
+        ("역할*", "branch = 지점 담당자 / welfare = 주관사 관리자 / coretail = 운영사 관리자. 필수."),
     ]
     for i, (field, desc) in enumerate(notes, 3):
         ws2[f"A{i}"] = field
         ws2[f"A{i}"].font = Font(bold=True)
         ws2[f"B{i}"] = desc
-    ws2.column_dimensions["A"].width = 20
-    ws2.column_dimensions["B"].width = 60
+    ws2.column_dimensions["A"].width = 22
+    ws2.column_dimensions["B"].width = 65
 
     output = BytesIO()
     wb.save(output)
@@ -241,11 +244,14 @@ async def bulk_upload(request: Request, file: UploadFile = File(...), db: Sessio
         if not row or not row[0]:
             continue
 
-        branch_code = str(row[0]).strip() if row[0] else ""
-        password = str(row[1]).strip() if row[1] else ""
-        branch_name = str(row[2]).strip() if row[2] else ""
-        region = str(row[3]).strip() if row[3] else ""
-        role = str(row[4]).strip().lower() if row[4] else "branch"
+        branch_code   = str(row[0]).strip() if row[0] else ""
+        password      = str(row[1]).strip() if row[1] else ""
+        business_no   = str(row[2]).strip() if len(row) > 2 and row[2] else ""
+        branch_name   = str(row[3]).strip() if len(row) > 3 and row[3] else ""
+        manager_name  = str(row[4]).strip() if len(row) > 4 and row[4] else ""
+        manager_phone = str(row[5]).strip() if len(row) > 5 and row[5] else ""
+        branch_address= str(row[6]).strip() if len(row) > 6 and row[6] else ""
+        role          = str(row[7]).strip().lower() if len(row) > 7 and row[7] else "branch"
 
         if not branch_code or not password or not branch_name:
             failed.append({"code": branch_code or "(빈칸)", "reason": "필수 항목 누락"})
@@ -267,8 +273,11 @@ async def bulk_upload(request: Request, file: UploadFile = File(...), db: Sessio
             db.add(models.User(
                 branch_code=branch_code,
                 password_hash=hash_password(password),
+                business_no=business_no,
                 branch_name=branch_name,
-                region=region,
+                manager_name=manager_name,
+                manager_phone=manager_phone,
+                branch_address=branch_address,
                 role=role,
                 created_at=datetime.now(),
             ))
