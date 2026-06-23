@@ -168,6 +168,22 @@ class AssetPriceRef(Base):
     updated_at   = Column(DateTime, default=datetime.now)
 
 
+class LoginLog(Base):
+    __tablename__ = "login_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # 실패 시 null
+    branch_code = Column(String(20), default="")
+    branch_name = Column(String(100), default="")
+    role = Column(String(20), default="")
+    action = Column(String(20), default="")   # login_success / login_failed / logout
+    ip_address = Column(String(50), default="")
+    user_agent = Column(String(300), default="")
+    created_at = Column(DateTime, default=datetime.now)
+
+    user = relationship("User", foreign_keys=[user_id])
+
+
 class SystemConfig(Base):
     __tablename__ = "system_configs"
 

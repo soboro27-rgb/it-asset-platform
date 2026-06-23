@@ -1106,6 +1106,47 @@ async def price_ref_create(request: Request, db: Session = Depends(get_db)):
     return RedirectResponse("/admin/price-refs", status_code=302)
 
 
+@router.get("/access-logs", response_class=HTMLResponse)
+def access_logs(
+    request: Request,
+    branch_code: str = "",
+    action: str = "",
+    date_from: str = "",
+    date_to: str = "",
+    db: Session = Depends(get_db),
+):
+    user, redir = _check(request)
+    if redir:
+        return redir
+    if user["role"] not in ("coretail", "operator"):
+        return RedirectResponse("/admin/dashboard", status_code=302)
+
+    query = db.query(models.LoginLog)
+    if branch_code:
+        query = query.filter(models.LoginLog.branch_code.ilike(f"%{branch_code}%"))
+    if action:
+        query = query.filter(models.LoginLog.action == action)
+    if date_from:
+        query = query.filter(models.LoginLog.created_at >= f"{date_from} 00:00:00")
+    if date_to:
+        query = query.filter(models.LoginLog.created_at <= f"{date_to} 23:59:59")
+
+    logs = query.order_by(models.LoginLog.created_at.desc()).limit(500).all()
+
+    return templates.TemplateResponse(
+        "admin/access_logs.html",
+        {
+            "request": request,
+            "session": request.session,
+            "logs": logs,
+            "filter_branch_code": branch_code,
+            "filter_action": action,
+            "filter_date_from": date_from,
+            "filter_date_to": date_to,
+        },
+    )
+
+
 @router.get("/settlement", response_class=HTMLResponse)
 def settlement_page(request: Request, month: str = "", db: Session = Depends(get_db)):
     user, redir = _check(request)

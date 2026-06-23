@@ -102,6 +102,28 @@ try:
 except Exception as _e:
     print(f"Migration warning (settlements): {_e}")
 
+# Migration: login_logs 테이블 생성
+try:
+    _existing_tables = _sa_inspect(engine).get_table_names()
+    if "login_logs" not in _existing_tables:
+        with engine.connect() as _c:
+            _c.execute(text("""
+                CREATE TABLE login_logs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER REFERENCES users(id),
+                    branch_code VARCHAR(20) DEFAULT '',
+                    branch_name VARCHAR(100) DEFAULT '',
+                    role VARCHAR(20) DEFAULT '',
+                    action VARCHAR(20) DEFAULT '',
+                    ip_address VARCHAR(50) DEFAULT '',
+                    user_agent VARCHAR(300) DEFAULT '',
+                    created_at DATETIME
+                )
+            """))
+            _c.commit()
+except Exception as _e:
+    print(f"Migration warning (login_logs): {_e}")
+
 # Migration: applications 테이블에 담당자/전화번호 컬럼 추가
 try:
     _apcols = [c['name'] for c in _sa_inspect(engine).get_columns('applications')]

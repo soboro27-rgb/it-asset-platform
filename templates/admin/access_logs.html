@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block title %}접속 이력{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h4><i class="bi bi-shield-lock me-2" style="color:var(--mg)"></i>접속 이력 / 로그</h4>
+  <div class="text-muted" style="font-size:12px">최근 500건 표시</div>
+</div>
+
+<!-- 필터 -->
+<div class="card mb-3">
+  <div class="card-body py-2 px-3">
+    <form method="get" action="/admin/access-logs" class="row g-2 align-items-end">
+      <div class="col-md-3">
+        <label class="form-label mb-1" style="font-size:11px;color:#7A9E8C;font-weight:600">지점코드 / 아이디</label>
+        <input type="text" name="branch_code" value="{{ filter_branch_code }}" class="form-control form-control-sm" placeholder="검색"/>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label mb-1" style="font-size:11px;color:#7A9E8C;font-weight:600">구분</label>
+        <select name="action" class="form-select form-select-sm">
+          <option value="" {% if not filter_action %}selected{% endif %}>전체</option>
+          <option value="login_success" {% if filter_action == 'login_success' %}selected{% endif %}>로그인 성공</option>
+          <option value="login_failed"  {% if filter_action == 'login_failed'  %}selected{% endif %}>로그인 실패</option>
+          <option value="logout"        {% if filter_action == 'logout'        %}selected{% endif %}>로그아웃</option>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label mb-1" style="font-size:11px;color:#7A9E8C;font-weight:600">시작일</label>
+        <input type="date" name="date_from" value="{{ filter_date_from }}" class="form-control form-control-sm"/>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label mb-1" style="font-size:11px;color:#7A9E8C;font-weight:600">종료일</label>
+        <input type="date" name="date_to" value="{{ filter_date_to }}" class="form-control form-control-sm"/>
+      </div>
+      <div class="col-md-1">
+        <button type="submit" class="btn btn-sm btn-mg w-100"><i class="bi bi-search"></i></button>
+      </div>
+      <div class="col-md-1">
+        <a href="/admin/access-logs" class="btn btn-sm btn-outline-secondary w-100"><i class="bi bi-x"></i></a>
+      </div>
+      <div class="col-md-1 text-end">
+        <span class="text-muted" style="font-size:11px">{{ logs|length }}건</span>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- 로그 테이블 -->
+<div class="card">
+  <div class="card-body p-0">
+    {% if logs %}
+    <table class="table table-hover mb-0" style="font-size:12px">
+      <thead class="table-light">
+        <tr>
+          <th class="ps-3">일시</th>
+          <th>지점코드</th>
+          <th>지점명</th>
+          <th>역할</th>
+          <th>구분</th>
+          <th>IP</th>
+          <th class="pe-3">브라우저</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for log in logs %}
+        <tr>
+          <td class="ps-3" style="color:#888;white-space:nowrap">
+            {{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') if log.created_at else '-' }}
+          </td>
+          <td class="fw-semibold">{{ log.branch_code or '-' }}</td>
+          <td>{{ log.branch_name or '-' }}</td>
+          <td>
+            {% if log.role == 'branch' %}
+              <span class="badge bg-success" style="font-size:10px">지점</span>
+            {% elif log.role == 'welfare' %}
+              <span class="badge bg-primary" style="font-size:10px">복지회</span>
+            {% elif log.role == 'operator' %}
+              <span class="badge" style="background:#1d4ed8;font-size:10px">운영사</span>
+            {% elif log.role == 'coretail' %}
+              <span class="badge" style="background:#6a1b9a;font-size:10px">매입사</span>
+            {% else %}
+              <span class="text-muted">-</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if log.action == 'login_success' %}
+              <span class="badge bg-success" style="font-size:10px"><i class="bi bi-box-arrow-in-right me-1"></i>로그인</span>
+            {% elif log.action == 'login_failed' %}
+              <span class="badge bg-danger" style="font-size:10px"><i class="bi bi-x-circle me-1"></i>실패</span>
+            {% elif log.action == 'logout' %}
+              <span class="badge bg-secondary" style="font-size:10px"><i class="bi bi-box-arrow-right me-1"></i>로그아웃</span>
+            {% else %}
+              <span class="text-muted">-</span>
+            {% endif %}
+          </td>
+          <td style="color:#888;font-family:monospace">{{ log.ip_address or '-' }}</td>
+          <td class="pe-3" style="color:#aaa;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
+              title="{{ log.user_agent }}">
+            {{ log.user_agent[:60] ~ '...' if log.user_agent and log.user_agent|length > 60 else log.user_agent or '-' }}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="text-center py-5 text-muted">
+      <i class="bi bi-clock-history" style="font-size:40px;display:block;margin-bottom:10px;opacity:.3"></i>
+      접속 이력이 없습니다.
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
