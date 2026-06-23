@@ -12,6 +12,7 @@ import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 from io import BytesIO
+from urllib.parse import quote as _url_quote
 
 
 def _make_thin_border():
@@ -372,7 +373,7 @@ def download_business_cert(request: Request, app_id: int, db: Session = Depends(
     return StreamingResponse(
         out,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{fname}"},
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{_url_quote(fname)}"},
     )
 
 
@@ -424,7 +425,7 @@ def branch_download_destruction(request: Request, app_id: int, db: Session = Dep
     return StreamingResponse(
         output,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{fname}"},
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{_url_quote(fname)}"},
     )
 
 

@@ -14,6 +14,7 @@ from io import BytesIO
 import os
 import base64
 from pathlib import Path
+from urllib.parse import quote as _url_quote
 from stamp_data import STAMP_B64
 
 router = APIRouter()
@@ -820,7 +821,7 @@ def download_shredding_report(request: Request, app_id: int, db: Session = Depen
     return StreamingResponse(
         output,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{fname}"},
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{_url_quote(fname)}"},
     )
 
 
@@ -840,7 +841,7 @@ def download_transfer_report(request: Request, app_id: int, db: Session = Depend
     return StreamingResponse(
         output,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{fname}"},
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{_url_quote(fname)}"},
     )
 
 
@@ -860,7 +861,7 @@ def download_disposal_report(request: Request, app_id: int, db: Session = Depend
     return StreamingResponse(
         output,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{fname}"},
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{_url_quote(fname)}"},
     )
 
 
@@ -1324,10 +1325,10 @@ def settlement_export(request: Request, month: str = "", db: Session = Depends(g
         ws_det.row_dimensions[r_idx].height = 18
 
     tot_r = len(detail_rows) + 5
-    ws_det.merge_cells(start_row=tot_r, start_column=2, end_row=tot_r, end_column=5)
+    ws_det.merge_cells(start_row=tot_r, start_column=2, end_row=tot_r, end_column=6)
     c = ws_det.cell(row=tot_r, column=2, value="합  계")
     c.font = Font(bold=True, size=10); c.border = tb; c.alignment = C
-    c = ws_det.cell(row=tot_r, column=6, value=sum(r["amount"] for r in detail_rows))
+    c = ws_det.cell(row=tot_r, column=7, value=sum(r["amount"] for r in detail_rows))
     c.font = Font(bold=True, size=10, color="006633")
     c.number_format = "#,##0"; c.border = tb; c.alignment = C
     ws_det.row_dimensions[tot_r].height = 22
@@ -1340,7 +1341,7 @@ def settlement_export(request: Request, month: str = "", db: Session = Depends(g
     return StreamingResponse(
         out,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{fname}"},
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{_url_quote(fname)}"},
     )
 
 
