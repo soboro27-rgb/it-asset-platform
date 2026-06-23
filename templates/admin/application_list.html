@@ -22,6 +22,38 @@
   {% endfor %}
 </div>
 
+<!-- 검색 필터 -->
+<div class="card mb-3">
+  <div class="card-body py-2 px-3">
+    <div class="row g-2 align-items-end">
+      <div class="col-md-3">
+        <label class="form-label mb-1" style="font-size:11px;color:#7A9E8C;font-weight:600">지점명 검색</label>
+        <input type="text" id="srch-branch" class="form-control form-control-sm" placeholder="지점명 또는 지점코드"/>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label mb-1" style="font-size:11px;color:#7A9E8C;font-weight:600">신청일 (시작)</label>
+        <input type="date" id="srch-date-from" class="form-control form-control-sm"/>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label mb-1" style="font-size:11px;color:#7A9E8C;font-weight:600">신청일 (종료)</label>
+        <input type="date" id="srch-date-to" class="form-control form-control-sm"/>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label mb-1" style="font-size:11px;color:#7A9E8C;font-weight:600">제목 검색</label>
+        <input type="text" id="srch-title" class="form-control form-control-sm" placeholder="신청서 제목"/>
+      </div>
+      <div class="col-md-2">
+        <button type="button" class="btn btn-sm btn-outline-secondary w-100" onclick="resetSearch()">
+          <i class="bi bi-x-circle me-1"></i>초기화
+        </button>
+      </div>
+    </div>
+    <div class="mt-1" style="font-size:11px;color:#aaa">
+      검색 결과: <span id="srch-count">{{ applications|length }}</span>건
+    </div>
+  </div>
+</div>
+
 <div class="card">
   <div class="card-body p-0">
     {% if applications %}
@@ -41,7 +73,10 @@
       </thead>
       <tbody>
         {% for app in applications %}
-        <tr>
+        <tr class="srch-row"
+            data-branch="{{ app.user.branch_name }} {{ app.user.branch_code }}"
+            data-title="{{ app.title if app.title else '신청서 #' ~ app.id }}"
+            data-date="{{ app.submitted_at.strftime('%Y-%m-%d') if app.submitted_at else '' }}">
           <td class="ps-3 text-muted" style="font-size:12px">{{ app.id }}</td>
           <td>
             <div style="font-size:13px;font-weight:600">{{ app.user.branch_name }}</div>
@@ -83,4 +118,37 @@
     {% endif %}
   </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function applySearch() {
+  const branch = document.getElementById('srch-branch').value.toLowerCase();
+  const title  = document.getElementById('srch-title').value.toLowerCase();
+  const from   = document.getElementById('srch-date-from').value;
+  const to     = document.getElementById('srch-date-to').value;
+  const rows   = document.querySelectorAll('.srch-row');
+  let visible  = 0;
+  rows.forEach(row => {
+    const matchBranch = !branch || row.dataset.branch.toLowerCase().includes(branch);
+    const matchTitle  = !title  || row.dataset.title.toLowerCase().includes(title);
+    const d = row.dataset.date;
+    const matchFrom = !from || !d || d >= from;
+    const matchTo   = !to   || !d || d <= to;
+    const show = matchBranch && matchTitle && matchFrom && matchTo;
+    row.style.display = show ? '' : 'none';
+    if (show) visible++;
+  });
+  document.getElementById('srch-count').textContent = visible;
+}
+function resetSearch() {
+  ['srch-branch','srch-title','srch-date-from','srch-date-to'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  applySearch();
+}
+['srch-branch','srch-title','srch-date-from','srch-date-to'].forEach(id => {
+  document.getElementById(id).addEventListener('input', applySearch);
+});
+</script>
 {% endblock %}
