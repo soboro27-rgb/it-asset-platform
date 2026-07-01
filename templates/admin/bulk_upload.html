@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% block title %}엑셀 대량 등록{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h4><i class="bi bi-file-earmark-excel me-2" style="color:var(--mg)"></i>엑셀 대량 계정 등록</h4>
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb mb-0">
+      <li class="breadcrumb-item"><a href="/admin/users" style="color:var(--mg)">계정 관리</a></li>
+      <li class="breadcrumb-item active">대량 등록</li>
+    </ol>
+  </nav>
+</div>
+
+<div class="row g-3">
+  <!-- 업로드 폼 -->
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header"><i class="bi bi-upload me-2"></i>엑셀 파일 업로드</div>
+      <div class="card-body">
+        <div class="alert alert-info py-2 mb-3" style="font-size:13px">
+          <i class="bi bi-info-circle me-1"></i>
+          아래 <strong>양식 다운로드</strong> 버튼으로 양식을 받아 작성 후 업로드하세요.
+        </div>
+
+        <form method="post" action="/admin/users/bulk" enctype="multipart/form-data">
+          <div class="mb-3">
+            <label class="form-label fw-semibold" style="font-size:13px">엑셀 파일 선택 (.xlsx) *</label>
+            <input type="file" name="file" class="form-control" accept=".xlsx" required style="font-size:13px"/>
+          </div>
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-mg">
+              <i class="bi bi-cloud-upload me-1"></i>업로드 및 등록
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- 양식 다운로드 -->
+    <div class="card mt-3">
+      <div class="card-header"><i class="bi bi-download me-2"></i>등록 양식 다운로드</div>
+      <div class="card-body">
+        <p style="font-size:13px" class="mb-3">아래 버튼으로 엑셀 양식을 받아 내용을 작성하세요.</p>
+        <a href="/admin/users/template" class="btn btn-success w-100">
+          <i class="bi bi-file-earmark-excel me-2"></i>계정등록양식.xlsx 다운로드
+        </a>
+        <div class="mt-2" style="font-size:11px;color:#888">
+          필수 컬럼: 지점코드, 비밀번호, 지점명/이름, 지역(선택), 역할
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 결과 / 안내 -->
+  <div class="col-md-6">
+    {% if results %}
+      {% if results.get('error') %}
+      <div class="alert alert-danger">
+        <i class="bi bi-x-circle me-1"></i>{{ results.error }}
+      </div>
+      {% else %}
+      <!-- 성공 결과 -->
+      <div class="card mb-3 border-success">
+        <div class="card-header bg-success text-white">
+          <i class="bi bi-check-circle me-2"></i>등록 완료: {{ results.success|length }}건
+        </div>
+        <div class="card-body p-0">
+          {% if results.success %}
+          <table class="table table-sm mb-0" style="font-size:12px">
+            <thead class="table-light"><tr><th class="ps-3">아이디</th><th>이름</th><th>역할</th></tr></thead>
+            <tbody>
+              {% for r in results.success %}
+              <tr>
+                <td class="ps-3">{{ r.code }}</td>
+                <td>{{ r.name }}</td>
+                <td>
+                  {% if r.role == 'branch' %}<span class="badge bg-success">지점</span>
+                  {% elif r.role == 'welfare' %}<span class="badge bg-primary">주관사</span>
+                  {% else %}<span class="badge" style="background:#6a1b9a">운영사</span>{% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          {% else %}
+          <div class="p-3 text-muted" style="font-size:13px">등록된 항목 없음</div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- 실패 결과 -->
+      {% if results.failed %}
+      <div class="card border-danger">
+        <div class="card-header bg-danger text-white">
+          <i class="bi bi-x-circle me-2"></i>실패: {{ results.failed|length }}건
+        </div>
+        <div class="card-body p-0">
+          <table class="table table-sm mb-0" style="font-size:12px">
+            <thead class="table-light"><tr><th class="ps-3">아이디</th><th>실패 사유</th></tr></thead>
+            <tbody>
+              {% for r in results.failed %}
+              <tr>
+                <td class="ps-3">{{ r.code }}</td>
+                <td class="text-danger">{{ r.reason }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {% endif %}
+
+      <div class="mt-3">
+        <a href="/admin/users" class="btn btn-mg w-100">
+          <i class="bi bi-people-fill me-2"></i>계정 목록으로 이동
+        </a>
+      </div>
+      {% endif %}
+
+    {% else %}
+    <!-- 안내 카드 -->
+    <div class="card border-0" style="background:#f8f9fa">
+      <div class="card-body">
+        <div class="fw-semibold mb-3" style="font-size:13px"><i class="bi bi-list-ol me-1"></i>엑셀 작성 방법</div>
+        <ol style="font-size:13px;line-height:2">
+          <li>아래 <strong>양식 다운로드</strong>로 엑셀 파일을 받습니다.</li>
+          <li>2행부터 계정 정보를 한 줄에 하나씩 입력합니다.</li>
+          <li>역할은 <code>branch</code> / <code>welfare</code> / <code>coretail</code> 중 하나.</li>
+          <li>파일을 저장 후 위 업로드 버튼으로 등록합니다.</li>
+        </ol>
+        <hr/>
+        <table class="table table-sm" style="font-size:12px">
+          <thead class="table-light">
+            <tr><th>컬럼</th><th>설명</th><th>필수</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>지점코드(아이디)</td><td>로그인 ID, 중복 불가</td><td><span class="text-danger">*</span></td></tr>
+            <tr><td>비밀번호</td><td>초기 비밀번호</td><td><span class="text-danger">*</span></td></tr>
+            <tr><td>지점명/이름</td><td>지점명 또는 담당자명</td><td><span class="text-danger">*</span></td></tr>
+            <tr><td>지역</td><td>서울, 부산 등</td><td></td></tr>
+            <tr><td>역할</td><td>branch / welfare / coretail</td><td><span class="text-danger">*</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block title %}관리자 대시보드{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h4>
+    <i class="bi bi-speedometer2 me-2" style="color:var(--mg)"></i>관리자 대시보드
+  </h4>
+  <div class="text-muted" style="font-size:12px">
+    {% if session.get('role') == 'welfare' %}주관사{% else %}매입사{% endif %} · 전체 현황
+  </div>
+</div>
+
+<!-- 통계 카드 -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="stat-card">
+      <div class="stat-num" style="color:#1a2e4a">{{ total }}</div>
+      <div class="stat-lbl"><i class="bi bi-folder2 me-1"></i>전체 신청</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card">
+      <div class="stat-num" style="color:#e65100">{{ submitted }}</div>
+      <div class="stat-lbl"><i class="bi bi-inbox me-1"></i>접수대기</div>
+      {% if submitted > 0 %}
+      <div class="mt-1"><span class="badge bg-danger" style="font-size:10px">처리 필요</span></div>
+      {% endif %}
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card">
+      <div class="stat-num" style="color:#1565c0">{{ in_progress }}</div>
+      <div class="stat-lbl"><i class="bi bi-arrow-repeat me-1"></i>진행중</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card">
+      <div class="stat-num" style="color:var(--mg)">{{ completed }}</div>
+      <div class="stat-lbl"><i class="bi bi-check-circle me-1"></i>완료</div>
+    </div>
+  </div>
+</div>
+
+<!-- 상태별 바로가기 -->
+<div class="row g-2 mb-4">
+  {% set shortcut_statuses = [
+    ('submitted','접수대기','inbox-fill','warning'),
+    ('approved','승인완료','check-circle','info'),
+    ('scheduled','일정확정대기','calendar2-check','primary'),
+    ('schedule_confirmed','수거예정','truck','primary'),
+    ('collected','수거완료','box-seam','secondary'),
+    ('priced','금액산정완료','currency-dollar','warning'),
+    ('branch_confirmed','지점승인완료','patch-check','success'),
+    ('completed','거래완료','flag-fill','success'),
+  ] %}
+  {% for s_key, s_name, icon, color in shortcut_statuses %}
+  <div class="col-6 col-md-3">
+    <a href="/admin/applications?status={{ s_key }}" class="text-decoration-none">
+      <div class="card h-100" style="transition:.15s" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform=''">
+        <div class="card-body py-3 px-3 d-flex align-items-center gap-3">
+          <i class="bi bi-{{ icon }} text-{{ color }}" style="font-size:20px"></i>
+          <div>
+            <div style="font-size:12px;color:#888">{{ s_name }}</div>
+          </div>
+          <i class="bi bi-chevron-right ms-auto text-muted" style="font-size:12px"></i>
+        </div>
+      </div>
+    </a>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- 최근 신청 목록 -->
+<div class="card">
+  <div class="card-header d-flex justify-content-between">
+    <span><i class="bi bi-clock-history me-2"></i>최근 신청 내역</span>
+    <a href="/admin/applications" class="btn btn-sm btn-outline-secondary">전체 보기</a>
+  </div>
+  <div class="card-body p-0">
+    {% if recent %}
+    <table class="table table-hover mb-0">
+      <thead class="table-light">
+        <tr>
+          <th class="ps-3">#</th>
+          <th>지점</th>
+          <th>제목</th>
+          <th>자산수</th>
+          <th>상태</th>
+          <th>신청일</th>
+          <th>최근업데이트</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for app in recent %}
+        <tr>
+          <td class="ps-3 text-muted" style="font-size:12px">{{ app.id }}</td>
+          <td style="font-size:13px"><strong>{{ app.user.branch_name }}</strong><div class="text-muted" style="font-size:11px">{{ app.user.branch_code }}</div></td>
+          <td style="font-size:13px">{{ app.title if app.title else '신청서 #' ~ app.id }}</td>
+          <td style="font-size:13px">
+            {% set total_qty = namespace(v=0) %}
+            {% for a in app.assets %}{% set total_qty.v = total_qty.v + a.quantity %}{% endfor %}
+            {{ total_qty.v }}개
+          </td>
+          <td>
+            <span class="s-badge bg-{{ STATUS_COLOR[app.status] }} {% if app.status in ['submitted','priced'] %}text-dark{% endif %}">
+              {{ STATUS_LABEL[app.status] }}
+            </span>
+          </td>
+          <td style="font-size:12px;color:#aaa">{{ app.submitted_at.strftime('%Y-%m-%d') if app.submitted_at else '-' }}</td>
+          <td style="font-size:12px;color:#aaa">{{ app.updated_at.strftime('%m-%d %H:%M') if app.updated_at else '-' }}</td>
+          <td><a href="/admin/applications/{{ app.id }}" class="btn btn-sm btn-outline-secondary">상세</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="text-center py-5 text-muted">
+      <i class="bi bi-inbox" style="font-size:40px;display:block;margin-bottom:10px;opacity:.3"></i>
+      아직 신청 내역이 없습니다.
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

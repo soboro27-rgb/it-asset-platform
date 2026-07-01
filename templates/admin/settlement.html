@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block title %}정산 관리{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+  <div>
+    <h4><i class="bi bi-receipt me-2" style="color:var(--mg)"></i>정산 관리</h4>
+    <div class="text-muted" style="font-size:12px">월별 지점 정산 내역 조회</div>
+  </div>
+  <a href="/admin/settlement/export?month={{ month }}" class="btn btn-sm btn-mg">
+    <i class="bi bi-file-earmark-excel me-1"></i>엑셀 다운로드
+  </a>
+</div>
+
+<!-- 월 선택 -->
+<div class="card mb-4">
+  <div class="card-body py-2 px-3">
+    <form method="get" action="/admin/settlement" class="d-flex align-items-center gap-3">
+      <label class="fw-semibold" style="font-size:13px;white-space:nowrap">조회 월</label>
+      <input type="month" name="month" value="{{ month }}" class="form-control form-control-sm" style="width:160px"/>
+      <button type="submit" class="btn btn-sm btn-mg">
+        <i class="bi bi-search me-1"></i>조회
+      </button>
+      <span class="text-muted" style="font-size:12px">거래완료(completed) 상태의 정산 건만 집계됩니다.</span>
+    </form>
+  </div>
+</div>
+
+<!-- 월별 정산서 요약 -->
+<div class="mb-2 fw-semibold" style="font-size:13px">
+  <i class="bi bi-dot" style="color:var(--mg)"></i> 월별 정산서 (요약)
+</div>
+<div class="card mb-4">
+  <div class="card-body p-0">
+    <table class="table mb-0" style="font-size:13px">
+      <thead class="table-light">
+        <tr>
+          <th class="ps-4 text-center" style="width:40%">구분</th>
+          <th class="text-center" style="width:30%">건수</th>
+          <th class="text-center pe-4" style="width:30%">매각금액</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="ps-4 text-center">
+            <span class="fw-semibold">{{ month[:4] }}년 {{ month[5:7] }}월 정산</span>
+          </td>
+          <td class="text-center">
+            {% if total_count > 0 %}
+              <span class="fw-semibold">{{ total_count }}건</span>
+            {% else %}
+              <span class="text-muted">-</span>
+            {% endif %}
+          </td>
+          <td class="text-center pe-4">
+            {% if total_amount > 0 %}
+              <span class="fw-semibold" style="color:var(--mg)">{{ "{:,.0f}".format(total_amount) }}원</span>
+            {% else %}
+              <span class="text-muted">-</span>
+            {% endif %}
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- 월별 정산 상세내역 -->
+<div class="mb-2 fw-semibold" style="font-size:13px">
+  <i class="bi bi-dot" style="color:var(--mg)"></i> 월별 정산 상세내역
+</div>
+<div class="card">
+  <div class="card-body p-0">
+    {% if detail_rows %}
+    <table class="table table-hover mb-0" style="font-size:13px">
+      <thead class="table-light">
+        <tr>
+          <th class="ps-3">일자</th>
+          <th>사업자번호</th>
+          <th>지점명</th>
+          <th>품목</th>
+          <th class="text-center">수량</th>
+          <th class="text-end pe-3">금액</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in detail_rows %}
+        <tr>
+          <td class="ps-3" style="color:#888">{{ row.date }}</td>
+          <td style="color:#888">{{ row.business_no if row.business_no else '-' }}</td>
+          <td class="fw-semibold">{{ row.branch_name }}</td>
+          <td>
+            <span class="badge rounded-pill" style="background:var(--mg-pale);color:var(--mg);border:1px solid var(--mg-border);font-size:11px">
+              {{ row.category }}
+            </span>
+          </td>
+          <td class="text-center">{{ row.quantity }}대</td>
+          <td class="text-end pe-3 fw-semibold" style="color:var(--mg)">
+            {{ "{:,.0f}".format(row.amount) }}원
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot class="table-light">
+        <tr>
+          <td colspan="4" class="ps-3 fw-semibold text-end pe-2">합계</td>
+          <td class="text-center fw-semibold">
+            {{ detail_rows | sum(attribute='quantity') }}대
+          </td>
+          <td class="text-end pe-3 fw-semibold" style="color:var(--mg)">
+            {{ "{:,.0f}".format(detail_rows | sum(attribute='amount')) }}원
+          </td>
+        </tr>
+      </tfoot>
+    </table>
+    {% else %}
+    <div class="text-center py-5 text-muted">
+      <i class="bi bi-inbox" style="font-size:40px;display:block;margin-bottom:10px;opacity:.3"></i>
+      {{ month[:4] }}년 {{ month[5:7] }}월에 완료된 정산 건이 없습니다.
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+{% block title %}시스템 설정 - 관리자{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h4><i class="bi bi-gear-fill me-2" style="color:var(--mg)"></i>시스템 설정</h4>
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb mb-0">
+      <li class="breadcrumb-item"><a href="/admin/dashboard" style="color:var(--mg)">대시보드</a></li>
+      <li class="breadcrumb-item active">시스템 설정</li>
+    </ol>
+  </nav>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-7">
+    <div class="card">
+      <div class="card-header"><i class="bi bi-percent me-2"></i>수수료 설정 (운영사 · 복지회 2단계)</div>
+      <div class="card-body">
+        <form method="post" action="/admin/settings">
+
+          <!-- 운영사 수수료 -->
+          <div class="mb-4">
+            <label class="form-label fw-semibold">
+              <span class="badge me-1" style="background:#2563eb">운영사</span>
+              운영사 수수료율 (%)
+            </label>
+            <div class="input-group" style="max-width:260px">
+              <input type="number" name="operator_fee_rate" id="operatorRate" class="form-control"
+                     value="{{ operator_fee_rate }}" min="0" max="100" step="0.1"
+                     placeholder="예: 3.0" style="font-size:15px"/>
+              <span class="input-group-text">%</span>
+            </div>
+            <div class="form-text mt-1">
+              매입사 매입금액에서 운영사 수수료를 차감한 금액이 <strong>복지회에 표시</strong>됩니다.
+            </div>
+          </div>
+
+          <!-- 복지회 수수료 -->
+          <div class="mb-4">
+            <label class="form-label fw-semibold">
+              <span class="badge bg-primary me-1">복지회</span>
+              복지회 수수료율 (%)
+            </label>
+            <div class="input-group" style="max-width:260px">
+              <input type="number" name="welfare_fee_rate" id="welfareRate" class="form-control"
+                     value="{{ welfare_fee_rate }}" min="0" max="100" step="0.1"
+                     placeholder="예: 5.0" style="font-size:15px"/>
+              <span class="input-group-text">%</span>
+            </div>
+            <div class="form-text mt-1">
+              복지회에 표시된 금액에서 복지회 수수료를 차감한 금액이 <strong>지점 수령 예정액</strong>이 됩니다.
+            </div>
+          </div>
+
+          <!-- 미리보기 -->
+          <div class="p-3 rounded mb-4" style="background:#f0f7ff;border:1px solid #c8dfff;font-size:13px">
+            <div class="fw-semibold mb-3" style="color:#1e3a5f">미리보기 — 매입금액 1,000,000원 기준</div>
+            <div class="d-flex flex-column gap-2">
+              <div class="d-flex justify-content-between">
+                <span class="text-muted">① 매입사 매입금액</span>
+                <strong>1,000,000원</strong>
+              </div>
+              <div class="d-flex justify-content-between">
+                <span class="text-muted">② 운영사 수수료 (<span id="pOpRate">{{ operator_fee_rate }}</span>%)</span>
+                <strong class="text-danger" id="pOpFee">- {{ "{:,.0f}".format(1000000 * operator_fee_rate / 100) }}원</strong>
+              </div>
+              <div class="d-flex justify-content-between" style="border-top:1px solid #c8dfff;padding-top:6px">
+                <span class="text-muted">③ 복지회에 표시되는 금액</span>
+                <strong style="color:#2563eb" id="pWelfareView">{{ "{:,.0f}".format(1000000 * (1 - operator_fee_rate / 100)) }}원</strong>
+              </div>
+              <div class="d-flex justify-content-between">
+                <span class="text-muted">④ 복지회 수수료 (<span id="pWfRate">{{ welfare_fee_rate }}</span>%)</span>
+                <strong class="text-danger" id="pWfFee">- {{ "{:,.0f}".format(1000000 * (1 - operator_fee_rate / 100) * welfare_fee_rate / 100) }}원</strong>
+              </div>
+              <div class="d-flex justify-content-between" style="border-top:2px solid #2563eb;padding-top:6px">
+                <span class="fw-semibold">⑤ 지점 수령 예정액</span>
+                <strong style="font-size:16px;color:var(--mg)" id="pBranch">
+                  {{ "{:,.0f}".format(1000000 * (1 - operator_fee_rate / 100) * (1 - welfare_fee_rate / 100)) }}원
+                </strong>
+              </div>
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-mg">
+            <i class="bi bi-save me-2"></i>저장
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="card">
+      <div class="card-header"><i class="bi bi-info-circle me-2"></i>수수료 구조 안내</div>
+      <div class="card-body" style="font-size:13px">
+        <table class="table table-sm">
+          <thead class="table-light">
+            <tr><th>항목</th><th>표시 대상</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="fw-semibold">매입사 매입금액 (원가)</td>
+              <td>
+                <span class="badge" style="background:#6a1b9a">운영사</span>
+                <span class="badge" style="background:#444">매입사</span>
+              </td>
+            </tr>
+            <tr>
+              <td class="fw-semibold">운영사 수수료 차감 후<br><small class="text-muted">= 매입가 × (1 - 운영사율)</small></td>
+              <td><span class="badge bg-primary">복지회</span></td>
+            </tr>
+            <tr>
+              <td class="fw-semibold">지점 수령 예정액<br><small class="text-muted">= 복지회 표시금액 × (1 - 복지회율)</small></td>
+              <td>
+                <span class="badge bg-success">지점</span>
+                <span class="badge" style="background:#444">매입사</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="alert alert-warning py-2 mb-0" style="font-size:12px">
+          <i class="bi bi-exclamation-triangle me-1"></i>
+          수수료율 변경은 이후 <strong>새로 산정되는 건</strong>에만 적용됩니다.
+          이미 산정된 건의 금액은 변경되지 않습니다.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const BASE = 1_000_000;
+const opInput = document.getElementById('operatorRate');
+const wfInput = document.getElementById('welfareRate');
+
+function updatePreview() {
+  const op = parseFloat(opInput.value) || 0;
+  const wf = parseFloat(wfInput.value) || 0;
+  const welfareView = BASE * (1 - op / 100);
+  const branch      = welfareView * (1 - wf / 100);
+
+  document.getElementById('pOpRate').textContent     = op;
+  document.getElementById('pOpFee').textContent      = '- ' + (BASE * op / 100).toLocaleString('ko-KR') + '원';
+  document.getElementById('pWelfareView').textContent = welfareView.toLocaleString('ko-KR') + '원';
+  document.getElementById('pWfRate').textContent     = wf;
+  document.getElementById('pWfFee').textContent      = '- ' + (welfareView * wf / 100).toLocaleString('ko-KR') + '원';
+  document.getElementById('pBranch').textContent     = branch.toLocaleString('ko-KR') + '원';
+}
+
+opInput.addEventListener('input', updatePreview);
+wfInput.addEventListener('input', updatePreview);
+</script>
+{% endblock %}

@@ -1,0 +1,426 @@
+{% extends "base.html" %}
+{% block title %}신청서 수정 #{{ app.id }}{% endblock %}
+
+{% block extra_css %}
+<style>
+  .asset-table th { background: #f8f9fa; font-size: 12px; white-space: nowrap; }
+  .asset-table td { padding: 6px 8px; vertical-align: middle; }
+  .asset-table select, .asset-table input { font-size: 13px; padding: 5px 8px; }
+  .btn-remove { padding: 3px 8px; font-size: 12px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h4><i class="bi bi-pencil-square me-2" style="color:var(--mg)"></i>신청서 수정</h4>
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb mb-0">
+      <li class="breadcrumb-item"><a href="/branch/dashboard" style="color:var(--mg)">대시보드</a></li>
+      <li class="breadcrumb-item"><a href="/branch/applications/{{ app.id }}" style="color:var(--mg)">신청서 #{{ app.id }}</a></li>
+      <li class="breadcrumb-item active">수정</li>
+    </ol>
+  </nav>
+</div>
+
+<form method="post" action="/branch/applications/{{ app.id }}/edit" id="appForm">
+  <!-- 기본 정보 -->
+  <div class="card mb-3">
+    <div class="card-header"><i class="bi bi-info-circle me-2"></i>기본 정보</div>
+    <div class="card-body">
+      <div class="row g-3">
+        <div class="col-md-8">
+          <label class="form-label fw-semibold" style="font-size:13px">신청서 제목</label>
+          <input type="text" name="title" class="form-control" style="font-size:13px"
+                 value="{{ app.title }}" required/>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label fw-semibold" style="font-size:13px">지점명</label>
+          <input type="text" class="form-control" style="font-size:13px;background:#f8f9fa"
+                 value="{{ session.get('branch_name') }}" readonly/>
+        </div>
+        <div class="col-md-8">
+          <label class="form-label fw-semibold" style="font-size:13px">비고 / 특이사항</label>
+          <textarea name="notes" class="form-control" style="font-size:13px" rows="2">{{ app.notes }}</textarea>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label fw-semibold" style="font-size:13px">담당자 / 전화번호</label>
+          <input type="text" name="contact_name" class="form-control mb-2" style="font-size:13px"
+                 placeholder="담당자 이름" value="{{ app.contact_name }}"/>
+          <input type="text" name="contact_phone" class="form-control" style="font-size:13px"
+                 placeholder="예) 010-0000-0000" value="{{ app.contact_phone }}"/>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 자산 목록 -->
+  <div class="card mb-3">
+    <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+      <span><i class="bi bi-laptop me-2"></i>자산 목록 <span class="badge ms-1" style="background:var(--mg);font-size:11px" id="itemCount">0</span></span>
+      <div class="d-flex gap-2 flex-wrap">
+        <a href="/branch/assets/template" class="btn btn-sm btn-outline-secondary">
+          <i class="bi bi-file-earmark-excel me-1"></i>엑셀 양식
+        </a>
+        <button type="button" class="btn btn-sm btn-outline-success" id="excelUploadBtn" onclick="triggerExcelUpload()">
+          <i class="bi bi-upload me-1"></i>엑셀 일괄등록
+        </button>
+        <input type="file" id="excelFileInput" accept=".xlsx" style="display:none" onchange="handleExcelUpload(this)">
+        <button type="button" class="btn btn-sm btn-mg" onclick="addRow()">
+          <i class="bi bi-plus-lg me-1"></i>항목 추가
+        </button>
+      </div>
+    </div>
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table asset-table mb-0" id="assetTable">
+          <thead>
+            <tr>
+              <th class="ps-3" style="width:140px">카테고리 *</th>
+              <th style="min-width:130px">모델명</th>
+              <th style="min-width:100px">제조사</th>
+              <th style="width:80px">제조연도</th>
+              <th style="width:70px">수량 *</th>
+              <th style="width:80px">상태 *</th>
+              <th style="min-width:140px">비고</th>
+              <th style="width:100px;color:#1d7a3e">가견적</th>
+              <th style="width:50px"></th>
+            </tr>
+          </thead>
+          <tbody id="assetBody">
+          </tbody>
+          <tfoot id="estTotalRow" style="display:none">
+            <tr style="background:#f0faf0">
+              <td colspan="7" class="text-end fw-semibold pe-2" style="font-size:13px;color:#555">가견적 합계</td>
+              <td id="estTotalCell" style="font-size:14px;font-weight:700;color:#1d7a3e;white-space:nowrap">0원</td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+    <div class="card-footer bg-white" id="emptyMsg" style="display:none">
+      <div class="text-center text-muted py-3" style="font-size:13px">
+        <i class="bi bi-plus-circle me-1"></i>위 "항목 추가" 버튼을 눌러 자산을 등록하세요
+      </div>
+    </div>
+  </div>
+
+  <div id="excelResult" class="mb-3" style="display:none"></div>
+
+  <div class="card mb-4">
+    <div class="card-body py-2 px-3">
+      <small class="text-muted"><i class="bi bi-info-circle me-1"></i>
+        대상 자산 카테고리:
+        <span class="badge bg-light text-dark border me-1">PC</span>
+        <span class="badge bg-light text-dark border me-1">노트북</span>
+        <span class="badge bg-light text-dark border me-1">태블릿</span>
+        <span class="badge bg-light text-dark border me-1">모바일</span>
+        <span class="badge bg-light text-dark border me-1">프린터</span>
+        <span class="badge bg-light text-dark border me-1">복합기</span>
+        <span class="badge bg-light text-dark border me-1">기타전산기기</span>
+      </small>
+    </div>
+  </div>
+
+  <div class="d-flex gap-2 justify-content-end">
+    <a href="/branch/applications/{{ app.id }}" class="btn btn-outline-secondary">취소</a>
+    <button type="submit" name="action" value="draft" class="btn btn-outline-dark">
+      <i class="bi bi-save me-1"></i>저장
+    </button>
+    <button type="submit" name="action" value="submit" class="btn btn-mg" onclick="return confirmSubmit()">
+      <i class="bi bi-send-fill me-1"></i>저장 후 제출
+    </button>
+  </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const CATEGORIES = {{ CATEGORIES | tojson }};
+let rowIndex = 0;
+
+function buildMainRowHtml(idx) {
+  return `
+    <td class="ps-3">
+      <select name="category[]" class="form-select" required style="font-size:13px" onchange="onCategoryChange(this,${idx})">
+        <option value="">선택</option>
+        ${CATEGORIES.map(c => `<option value="${c}">${c}</option>`).join('')}
+      </select>
+    </td>
+    <td style="position:relative">
+      <input type="text" name="model_name[]" id="model_name_${idx}" class="form-control" placeholder="모델명 또는 코드 입력"
+             style="font-size:13px" autocomplete="off"
+             oninput="onModelInput(this,${idx})" onblur="hideDropdown(${idx})"/>
+      <input type="hidden" name="estimated_unit_price[]" id="est_price_${idx}" value="0"/>
+      <div id="ac_drop_${idx}" style="display:none;position:absolute;z-index:999;background:#fff;border:1px solid #dee2e6;border-radius:6px;width:100%;max-height:220px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,.15);top:100%;left:0"></div>
+    </td>
+    <td><input type="text" name="manufacturer[]" class="form-control" placeholder="제조사" style="font-size:13px"/></td>
+    <td><input type="number" name="manufacture_year[]" class="form-control" placeholder="연도" min="1990" max="2030" style="font-size:13px"/></td>
+    <td><input type="number" name="quantity[]" class="form-control" value="1" min="1" required style="font-size:13px" oninput="updateEstCell(${idx});updateEstTotal()"/></td>
+    <td>
+      <select name="condition[]" class="form-select" style="font-size:13px">
+        <option value="상">상</option>
+        <option value="중" selected>중</option>
+        <option value="하">하</option>
+      </select>
+    </td>
+    <td><input type="text" name="description[]" class="form-control" placeholder="특이사항" style="font-size:13px"/></td>
+    <td id="est_cell_${idx}" style="font-size:12px;color:#1d7a3e;font-weight:600;white-space:nowrap">-</td>
+    <td><button type="button" class="btn btn-outline-danger btn-remove" onclick="removeRow(${idx})"><i class="bi bi-trash"></i></button></td>
+  `;
+}
+
+function buildExtraRowHtml(idx) {
+  return `
+    <td colspan="8" style="padding:2px 12px 8px;background:#f0fbf5;border-top:none">
+      <div class="d-flex gap-2 flex-wrap align-items-end">
+        <div>
+          <div class="text-muted mb-1" style="font-size:11px">메모리 사양</div>
+          <input type="text" name="memory_spec[]" class="form-control form-control-sm" placeholder="예: 16GB DDR4" style="width:130px;font-size:12px"/>
+        </div>
+        <div>
+          <div class="text-muted mb-1" style="font-size:11px">저장장치 사양</div>
+          <input type="text" name="storage_spec[]" class="form-control form-control-sm" placeholder="예: 512GB SSD" style="width:130px;font-size:12px"/>
+        </div>
+        <div>
+          <div class="text-muted mb-1" style="font-size:11px"><i class="bi bi-shield-check me-1"></i>데이터 삭제</div>
+          <select name="data_wiped[]" class="form-select form-select-sm" style="width:120px;font-size:12px">
+            <option value="">미진행</option>
+            <option value="파쇄">파쇄완료</option>
+            <option value="블랑코">블랑코완료</option>
+          </select>
+        </div>
+        <div id="adapter_div_${idx}" style="display:none">
+          <div class="text-muted mb-1" style="font-size:11px"><i class="bi bi-plug me-1"></i>아답터</div>
+          <select name="has_adapter[]" class="form-select form-select-sm" style="width:100px;font-size:12px">
+            <option value="">미확인</option>
+            <option value="있음">있음</option>
+            <option value="없음">없음</option>
+          </select>
+        </div>
+      </div>
+    </td>
+  `;
+}
+
+function onCategoryChange(sel, idx) {
+  const cat = sel.value;
+  const extraRow = document.getElementById(`extra_${idx}`);
+  const adapterDiv = document.getElementById(`adapter_div_${idx}`);
+  if (cat === 'PC' || cat === '노트북') {
+    extraRow.style.display = '';
+    adapterDiv.style.display = cat === '노트북' ? '' : 'none';
+  } else {
+    extraRow.style.display = 'none';
+  }
+}
+
+function addRow() { addRowFromData({}); }
+
+function addRowFromData(data) {
+  const tbody = document.getElementById('assetBody');
+  document.getElementById('emptyMsg').style.display = 'none';
+
+  const idx = rowIndex;
+  const tr = document.createElement('tr');
+  tr.id = `row_${idx}`;
+  tr.className = 'main-row';
+  tr.dataset.idx = idx;
+  tr.innerHTML = buildMainRowHtml(idx);
+  tbody.appendChild(tr);
+
+  const extraTr = document.createElement('tr');
+  extraTr.id = `extra_${idx}`;
+  extraTr.style.display = 'none';
+  extraTr.innerHTML = buildExtraRowHtml(idx);
+  tbody.appendChild(extraTr);
+
+  const catSel  = tr.querySelector('select[name="category[]"]');
+  const condSel = tr.querySelector('select[name="condition[]"]');
+  const inputs  = tr.querySelectorAll('input');
+
+  if (data.category)        { catSel.value = data.category; onCategoryChange(catSel, idx); }
+  if (data.model_name)        inputs[0].value = data.model_name;
+  if (data.manufacturer)      inputs[1].value = data.manufacturer;
+  if (data.manufacture_year)  inputs[2].value = data.manufacture_year;
+  inputs[3].value = data.quantity || 1;
+  if (data.condition)         condSel.value = data.condition;
+  if (data.description)       inputs[4].value = data.description;
+  if (data.estimated_unit_price) {
+    document.getElementById(`est_price_${idx}`).value = data.estimated_unit_price;
+    updateEstCell(idx);
+    updateEstTotal();
+  }
+
+  if (data.memory_spec)  extraTr.querySelector('input[name="memory_spec[]"]').value  = data.memory_spec;
+  if (data.storage_spec) extraTr.querySelector('input[name="storage_spec[]"]').value = data.storage_spec;
+  if (data.data_wiped)   extraTr.querySelector('select[name="data_wiped[]"]').value  = data.data_wiped;
+  if (data.has_adapter)  extraTr.querySelector('select[name="has_adapter[]"]').value = data.has_adapter;
+
+  rowIndex++;
+  updateCount();
+}
+
+function removeRow(idx) {
+  document.getElementById(`row_${idx}`)?.remove();
+  document.getElementById(`extra_${idx}`)?.remove();
+  updateCount();
+  if (document.querySelectorAll('#assetBody tr[id^="row_"]').length === 0) {
+    document.getElementById('emptyMsg').style.display = '';
+  }
+}
+
+function updateCount() {
+  document.getElementById('itemCount').textContent =
+    document.querySelectorAll('#assetBody tr[id^="row_"]').length;
+}
+
+function confirmSubmit() {
+  const rows = document.querySelectorAll('#assetBody tr[id^="row_"]').length;
+  if (rows === 0) { alert('자산 항목을 1개 이상 입력해주세요.'); return false; }
+  return confirm(`${rows}개 항목으로 신청서를 제출하시겠습니까?\n제출 후에는 수정이 불가능합니다.`);
+}
+
+function triggerExcelUpload() { document.getElementById('excelFileInput').click(); }
+
+async function handleExcelUpload(input) {
+  if (!input.files.length) return;
+  const file = input.files[0];
+  if (!file.name.toLowerCase().endsWith('.xlsx')) {
+    alert('엑셀 파일(.xlsx)만 업로드 가능합니다.');
+    input.value = '';
+    return;
+  }
+  const btn = document.getElementById('excelUploadBtn');
+  const orig = btn.innerHTML;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>처리중...';
+  btn.disabled = true;
+  try {
+    const fd = new FormData();
+    fd.append('file', file);
+    const resp = await fetch('/branch/assets/parse-excel', { method: 'POST', body: fd });
+    const result = await resp.json();
+    if (result.error) { showExcelResult('danger', result.error); return; }
+    result.items.forEach(item => addRowFromData(item));
+    let msg = `<strong>${result.items.length}개</strong> 항목 추가`;
+    let type = 'success';
+    if (result.errors.length > 0) {
+      type = 'warning';
+      msg += '<ul class="mb-0 mt-1">' + result.errors.map(e => `<li>${e}</li>`).join('') + '</ul>';
+    }
+    showExcelResult(type, msg);
+  } catch { showExcelResult('danger', '파일 처리 중 오류가 발생했습니다.'); }
+  finally { btn.innerHTML = orig; btn.disabled = false; input.value = ''; }
+}
+
+function showExcelResult(type, message) {
+  const div = document.getElementById('excelResult');
+  div.style.display = '';
+  div.innerHTML = `<div class="alert alert-${type} alert-dismissible mb-0 py-2 px-3" style="font-size:13px">
+    ${message}
+    <button type="button" class="btn-close" onclick="document.getElementById('excelResult').style.display='none'"></button>
+  </div>`;
+}
+
+// 가견적 자동완성
+let _acTimer = null;
+function onModelInput(input, idx) {
+  clearTimeout(_acTimer);
+  const q = input.value.trim();
+  if (q.length < 1) { hideDropdown(idx); return; }
+  const catSel = input.closest('tr')?.querySelector('select[name="category[]"]');
+  const category = catSel ? catSel.value : '';
+  _acTimer = setTimeout(async () => {
+    const params = new URLSearchParams({ q, ...(category ? { category } : {}) });
+    try {
+      const res = await fetch(`/admin/api/price-refs?${params}`);
+      const data = await res.json();
+      renderDropdown(data, idx);
+    } catch(e) {}
+  }, 200);
+}
+
+function renderDropdown(items, idx) {
+  const drop = document.getElementById(`ac_drop_${idx}`);
+  if (!items || items.length === 0) { drop.style.display = 'none'; return; }
+  drop.innerHTML = items.map(item => `
+    <div class="ac-item" style="padding:8px 12px;cursor:pointer;border-bottom:1px solid #f0f0f0;font-size:12px"
+         onmousedown="selectModel(event,${idx},${JSON.stringify(item).replace(/"/g,'&quot;')})">
+      <div class="fw-semibold">${item.model_code ? `<span style="color:#6a1b9a">${item.model_code}</span> · ` : ''}${item.model_display}</div>
+      <div class="text-muted" style="font-size:11px">${item.mem_spec || ''} ${item.os_spec ? '· '+item.os_spec : ''}</div>
+      <div style="color:#1d7a3e;font-weight:600;font-size:11px">가견적 ${item.base_price.toLocaleString('ko-KR')}원</div>
+    </div>
+  `).join('');
+  drop.querySelectorAll('.ac-item').forEach(el => {
+    el.addEventListener('mouseover', () => el.style.background = '#f0f7ff');
+    el.addEventListener('mouseout',  () => el.style.background = '');
+  });
+  drop.style.display = 'block';
+}
+
+function selectModel(event, idx, item) {
+  event.preventDefault();
+  document.getElementById(`model_name_${idx}`).value =
+    item.model_code ? `${item.model_code} ${item.model_display}` : item.model_display;
+  document.getElementById(`est_price_${idx}`).value = item.base_price;
+  const extraRow = document.getElementById(`extra_${idx}`);
+  if (extraRow && item.mem_spec) {
+    const memInput = extraRow.querySelector('input[name="memory_spec[]"]');
+    if (memInput && !memInput.value) memInput.value = item.mem_spec;
+  }
+  hideDropdown(idx);
+  updateEstCell(idx);
+  updateEstTotal();
+}
+
+function updateEstCell(idx) {
+  const price = parseFloat(document.getElementById(`est_price_${idx}`)?.value || 0);
+  const row = [...document.querySelectorAll('#assetBody tr.main-row')].find(r => r.dataset.idx == idx);
+  const qty = parseInt(row?.querySelector('input[name="quantity[]"]')?.value || 1) || 1;
+  const cell = document.getElementById(`est_cell_${idx}`);
+  if (cell) cell.textContent = price > 0 ? `${(price * qty).toLocaleString('ko-KR')}원` : '-';
+}
+
+function updateEstTotal() {
+  let total = 0;
+  document.querySelectorAll('[id^="est_price_"]').forEach(el => {
+    const idx = el.id.replace('est_price_', '');
+    const price = parseFloat(el.value || 0);
+    if (price <= 0) return;
+    const row = [...document.querySelectorAll('#assetBody tr.main-row')].find(r => r.dataset.idx == idx);
+    total += price * (parseInt(row?.querySelector('input[name="quantity[]"]')?.value || 1) || 1);
+  });
+  const totalRow = document.getElementById('estTotalRow');
+  const totalCell = document.getElementById('estTotalCell');
+  if (total > 0) {
+    totalRow.style.display = '';
+    totalCell.textContent = total.toLocaleString('ko-KR') + '원';
+  } else {
+    totalRow.style.display = 'none';
+  }
+}
+
+function hideDropdown(idx) {
+  document.getElementById(`ac_drop_${idx}`)?.style && (document.getElementById(`ac_drop_${idx}`).style.display = 'none');
+}
+
+// 기존 자산 데이터 pre-fill
+const existingItems = {{ app.assets | map(attribute='__dict__') | list | tojson if false else '[]' }};
+{% for item in app.assets %}
+addRowFromData({
+  category:            {{ item.category | tojson }},
+  model_name:          {{ item.model_name | tojson }},
+  manufacturer:        {{ item.manufacturer | tojson }},
+  manufacture_year:    {{ item.manufacture_year | tojson }},
+  quantity:            {{ item.quantity }},
+  condition:           {{ item.condition | tojson }},
+  description:         {{ item.description | tojson }},
+  memory_spec:         {{ item.memory_spec | tojson }},
+  storage_spec:        {{ item.storage_spec | tojson }},
+  data_wiped:          {{ item.data_wiped | tojson }},
+  has_adapter:         {{ item.has_adapter | tojson }},
+  estimated_unit_price: {{ item.estimated_unit_price }},
+});
+{% endfor %}
+</script>
+{% endblock %}
