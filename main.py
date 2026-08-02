@@ -187,6 +187,11 @@ def process_page(request: Request):
     return templates.TemplateResponse("process.html", {"request": request})
 
 
+@app.get("/pricing-standard")
+def pricing_standard_page(request: Request):
+    return templates.TemplateResponse("pricing_standard.html", {"request": request})
+
+
 @app.get("/")
 def root(request: Request):
     if not request.session.get("user_id"):
