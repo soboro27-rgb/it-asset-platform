@@ -50,13 +50,18 @@ LG전자 대리점 약 30개사가 신품을 고객사에 납품할 때, 고객�
 결과: total 540,000 / branch_total 540,000(수수료0) / credit 400,000 / remaining_cash 140,000 / completed.
 UTF-8 폼 입력 정상(Python 클라이언트 확인. Git Bash curl 한글은 깨져서 테스트 데이터만 mojibake).
 
+### 배포 (2026-09-02)
+
+- `git push origin master:main` → Render 자동 배포 완료. https://it-asset-platform.onrender.com
+- 대리점 30개 시드: LGD01~29("대리점 01"~"대리점 29") + LGD30(하주씨앤씨).
+  `seed_dealers.py` 멱등, main.py 기동 시 호출. 계정표 = `CREDENTIALS.md`(gitignore).
+- 라이브 검증: 로그인 화면 대리점 30개 드롭다운, LGD01/LGD30/CORETAIL01 로그인 302 OK.
+
 ### 남은 작업 (Phase 2)
 
 - 템플릿 용어 정리: "지점"→"대리점", "매각"→"매입", 복지회/포스라/주관사/운영사/매입사
   잔여 문구(base 일부, admin/users·user_form·access_logs, branch/application_detail 등 ~10파일)
 - `branch/application_detail.html` — 고객사 정보 표시, 구 정산 라벨 정리
 - `process.html`, `pricing_standard.html` 문구 LG 시나리오로
-- 30개 대리점 시드 데이터 / 계정 일괄 등록 가이드
 - 엑셀 export(settlement)도 대리점별 그룹 반영
 - `init_data.py` — migrate()가 OPERATOR01 만들면 init() 시드가 스킵되는 버그
-- 배포: it-asset-platform-clone 에 반영 후 push (Render Python 3.11.9)
