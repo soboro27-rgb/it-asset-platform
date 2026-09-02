@@ -9,7 +9,7 @@ main.py 기동 시 자동 호출.
 """
 from datetime import datetime
 
-SEED_VERSION = 2
+SEED_VERSION = 3
 
 DEALERS = [
     ('LGD01', '대리점 01', 'wmbwxw5a'),
@@ -77,6 +77,19 @@ def seed_dealers():
                 user.is_active = True
                 synced += 1
 
+        deactivated = 0
+        if sync:
+            # DEALERS 목록 밖의 대리점 계정(구 데모/샘플)은 비활성화
+            valid_codes = {c for c, _, _ in DEALERS}
+            strays = db.query(models.User).filter(
+                models.User.role == "branch",
+                models.User.is_active == True,  # noqa: E712
+                ~models.User.branch_code.in_(valid_codes),
+            ).all()
+            for u in strays:
+                u.is_active = False
+                deactivated += 1
+
         if sync:
             if cfg:
                 cfg.value = str(SEED_VERSION)
@@ -85,8 +98,8 @@ def seed_dealers():
                 db.add(models.SystemConfig(key="dealer_seed_version", value=str(SEED_VERSION)))
 
         db.commit()
-        if created or synced:
-            print(f"[seed_dealers] 생성 {created} / 동기화 {synced} (v{SEED_VERSION})")
+        if created or synced or deactivated:
+            print(f"[seed_dealers] 생성 {created} / 동기화 {synced} / 비활성 {deactivated} (v{SEED_VERSION})")
     except Exception as e:
         db.rollback()
         print(f"[seed_dealers] 오류: {e}")
