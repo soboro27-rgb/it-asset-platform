@@ -1062,7 +1062,7 @@ async def settlement_pay_batch(request: Request, db: Session = Depends(get_db)):
 
 @router.get("/api/price-refs", response_class=JSONResponse)
 def price_ref_search(request: Request, q: str = "", category: str = "", db: Session = Depends(get_db)):
-    """지점 신청서 자동완성용 가격 기준표 검색 API (인증 불필요)"""
+    """대리점 접수서 자동완성용 가격 기준표 검색 API (인증 불필요)"""
     query = db.query(models.AssetPriceRef).filter(models.AssetPriceRef.is_active == True)
     if category:
         query = query.filter(models.AssetPriceRef.category == category)
@@ -1353,7 +1353,7 @@ def settlement_export(request: Request, month: str = "", db: Session = Depends(g
     ws_det["B2"].alignment = C
     ws_det.row_dimensions[2].height = 30
 
-    hdrs = ["일자", "사업자번호", "지점명", "품목", "수량", "금액"]
+    hdrs = ["일자", "사업자번호", "대리점명", "품목", "수량", "금액"]
     for col, hdr in zip(det_cols, hdrs):
         c = ws_det[f"{col}4"]
         c.value = hdr; c.font = mg_font; c.fill = mg_fill

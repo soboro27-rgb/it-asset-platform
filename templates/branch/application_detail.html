@@ -24,7 +24,7 @@
 {% set steps = [
   ('submitted','접수'),('approved','승인'),('scheduled','일정확정'),
   ('schedule_confirmed','수거예정'),('collected','수거완료'),
-  ('priced','금액산정'),('branch_confirmed','지점승인'),('completed','완료')
+  ('priced','금액산정'),('branch_confirmed','대리점승인'),('completed','완료')
 ] %}
 {% set status_order = ['draft','submitted','approved','scheduled','schedule_confirmed','collected','priced','branch_confirmed','completed'] %}
 {% set cur_idx = status_order.index(app.status) %}
@@ -50,8 +50,8 @@
       <div class="card-header"><i class="bi bi-info-circle me-2"></i>신청 정보</div>
       <div class="card-body">
         <div class="row g-2" style="font-size:13px">
-          <div class="col-6"><span class="text-muted">신청 지점</span><div class="fw-semibold mt-1">{{ app.user.branch_name }}</div></div>
-          <div class="col-6"><span class="text-muted">지점코드</span><div class="fw-semibold mt-1">{{ app.user.branch_code }}</div></div>
+          <div class="col-6"><span class="text-muted">신청 대리점</span><div class="fw-semibold mt-1">{{ app.user.branch_name }}</div></div>
+          <div class="col-6"><span class="text-muted">대리점코드</span><div class="fw-semibold mt-1">{{ app.user.branch_code }}</div></div>
           <div class="col-6"><span class="text-muted">신청일시</span><div class="fw-semibold mt-1">{{ app.submitted_at.strftime('%Y-%m-%d %H:%M') if app.submitted_at else '미제출' }}</div></div>
           <div class="col-6"><span class="text-muted">작성일</span><div class="fw-semibold mt-1">{{ app.created_at.strftime('%Y-%m-%d') if app.created_at else '-' }}</div></div>
           {% if app.notes %}
@@ -148,7 +148,7 @@
       <div class="card-body text-center py-4">
         <i class="bi bi-hourglass-split" style="font-size:36px;color:#f57c00"></i>
         <div class="fw-bold mt-2">검토 중</div>
-        <div class="text-muted mt-1" style="font-size:12px">복지회 및 매입사 담당자가<br/>신청 내용을 검토하고 있습니다.</div>
+        <div class="text-muted mt-1" style="font-size:12px">월드와이드메모리 담당자가<br/>접수 내용을 검토하고 있습니다.</div>
       </div>
     </div>
 
@@ -228,7 +228,7 @@
       <div class="card-body text-center py-4">
         <i class="bi bi-box-seam-fill" style="font-size:36px;color:#1565c0"></i>
         <div class="fw-bold mt-2">수거 완료</div>
-        <div class="text-muted mt-1" style="font-size:12px">자산 수거가 완료되었습니다.<br/>매입사에서 금액 산정 중입니다.</div>
+        <div class="text-muted mt-1" style="font-size:12px">자산 수거가 완료되었습니다.<br/>월드와이드메모리에서 매입 단가 산정 중입니다.</div>
       </div>
     </div>
 
@@ -263,41 +263,20 @@
     <div class="card border-0 mb-3" style="background:#e8f5e9">
       <div class="card-body text-center py-4">
         <i class="bi bi-hourglass-split" style="font-size:36px;color:var(--mg)"></i>
-        <div class="fw-bold mt-2">복지회 최종 확인 중</div>
-        <div class="text-muted mt-1" style="font-size:12px">주관사에서<br/>입금 처리 중입니다.</div>
+        <div class="fw-bold mt-2">지급 처리 대기 중</div>
+        <div class="text-muted mt-1" style="font-size:12px">월드와이드메모리에서<br/>월별 일괄 지급 처리 중입니다.</div>
         {% if app.settlement %}
         <div class="mt-3 p-3 bg-white rounded border">
-          <div style="font-size:11px;color:#888">수령 예정 금액</div>
-          <div style="font-size:22px;font-weight:700;color:var(--mg)">{{ "{:,.0f}".format(app.settlement.branch_total_amount) }}원</div>
+          <div style="font-size:11px;color:#888">지급 예정 금액</div>
+          <div style="font-size:22px;font-weight:700;color:var(--mg)">
+            {% if app.settlement.payout_mode == 'credit' %}{{ "{:,.0f}".format(app.settlement.remaining_cash) }}원
+            {% else %}{{ "{:,.0f}".format(app.settlement.branch_total_amount) }}원{% endif %}
+          </div>
+          {% if app.settlement.payout_mode == 'credit' %}
+          <div style="font-size:11px;color:#888;margin-top:4px">신품 구매지원금 {{ "{:,.0f}".format(app.settlement.credit_applied) }}원 차감</div>
+          {% endif %}
         </div>
         {% endif %}
-      </div>
-    </div>
-
-    <!-- 세금계산서 발행 안내 -->
-    <div class="card mb-3">
-      <div class="card-header" style="font-size:13px">
-        <i class="bi bi-receipt me-2" style="color:var(--mg)"></i>세금계산서 발행 요청
-      </div>
-      <div class="card-body" style="font-size:12px">
-        <div class="mb-2 fw-semibold text-muted" style="font-size:11px;letter-spacing:.5px">사업자 정보</div>
-        <table class="table table-sm mb-3" style="font-size:12px">
-          <tr><td class="text-muted" style="width:100px">상호명</td><td class="fw-semibold">새마을금고복지회</td></tr>
-          <tr><td class="text-muted">사업자번호</td><td>109-82-05569</td></tr>
-          <tr><td class="text-muted">대표자</td><td>박경조</td></tr>
-          <tr><td class="text-muted">사업장</td><td>서울특별시 마포구 양화로 106<br/><span style="color:#aaa">(서교동, 새마을금고복지회)</span></td></tr>
-          <tr><td class="text-muted">발행 이메일</td><td><a href="mailto:jae-ho.choi@kfcc.co.kr" style="color:var(--mg)">jae-ho.choi@kfcc.co.kr</a></td></tr>
-        </table>
-        <div class="mb-2 fw-semibold text-muted" style="font-size:11px;letter-spacing:.5px">담당자 정보</div>
-        <div class="p-2 rounded mb-3" style="background:#f8f9fa;font-size:12px">
-          <i class="bi bi-person me-1"></i>최재호 차장&nbsp;&nbsp;
-          <i class="bi bi-telephone me-1 ms-2"></i>02-3429-9720
-        </div>
-        <a href="/branch/applications/{{ app.id }}/report/business-cert"
-           class="btn btn-sm w-100 fw-semibold"
-           style="background:var(--mg);color:#fff;font-size:12px">
-          <i class="bi bi-file-earmark-excel me-1"></i>사업자등록증 다운로드
-        </a>
       </div>
     </div>
 

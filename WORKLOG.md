@@ -57,11 +57,23 @@ UTF-8 폼 입력 정상(Python 클라이언트 확인. Git Bash curl 한글은 �
   `seed_dealers.py` 멱등, main.py 기동 시 호출. 계정표 = `CREDENTIALS.md`(gitignore).
 - 라이브 검증: 로그인 화면 대리점 30개 드롭다운, LGD01/LGD30/CORETAIL01 로그인 302 OK.
 
+## 2026-09-02 — 용어 정리 (복지회/주관사/운영사/매입사/지점 제거)
+
+- 전 템플릿·라우터에서 복지회·주관사·운영사·매입사 → "관리자"(월드와이드메모리),
+  지점 → 대리점, "IT자산 매각" → "매입" 로 치환
+- `admin/settings.html` 전면 재작성: 운영사·복지회 2단 수수료 → 플랫폼 수수료 1단
+- `branch/application_detail.html`: 세금계산서 발행 카드 삭제, branch_confirmed 안내를
+  대리점 지급 대기로, 지원금 차감 표시 추가
+- `branch_router.py`: `/report/business-cert` 라우트(새마을금고복지회 하드코딩) 삭제
+- `user_router.py` ROLE_LABEL / 엑셀 양식 문구 갱신
+- `process.html`·`pricing_standard.html` 문구 갱신 + 푸터
+- 배포: origin/main 푸시
+
 ### 남은 작업 (Phase 2)
 
-- 템플릿 용어 정리: "지점"→"대리점", "매각"→"매입", 복지회/포스라/주관사/운영사/매입사
-  잔여 문구(base 일부, admin/users·user_form·access_logs, branch/application_detail 등 ~10파일)
-- `branch/application_detail.html` — 고객사 정보 표시, 구 정산 라벨 정리
-- `process.html`, `pricing_standard.html` 문구 LG 시나리오로
+- `process.html`·`pricing_standard.html` 은 base.html 미상속 독립 스타일(다크+그린) →
+  LG 레드 테마로 재도색 필요
 - 엑셀 export(settlement)도 대리점별 그룹 반영
-- `init_data.py` — migrate()가 OPERATOR01 만들면 init() 시드가 스킵되는 버그
+- `init_data.py` — migrate()가 OPERATOR01 만들면 init() 시드가 스킵되는 버그.
+  라이브(Render)는 CORETAIL01 존재. 로컬 재현 시 수동 시드 필요.
+- `welfare` role 자체는 스키마/권한 체크에 남아있음(미사용). 완전 제거는 마이그레이션 필요.

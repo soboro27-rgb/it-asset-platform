@@ -12,7 +12,7 @@ from io import BytesIO
 
 router = APIRouter()
 
-ROLE_LABEL = {"branch": "지점 담당자", "welfare": "주관사", "operator": "운영사", "coretail": "매입사"}
+ROLE_LABEL = {"branch": "대리점", "welfare": "관리자", "operator": "관리자", "coretail": "관리자"}
 
 
 def _check(request: Request):
@@ -28,7 +28,7 @@ def user_list(request: Request, role: str = "", db: Session = Depends(get_db)):
     if redir:
         return redir
 
-    # 복지회 계정은 지점 담당자만 조회
+    # welfare 계정(구 역할)은 대리점 계정만 조회
     if user["role"] == "welfare":
         role = "branch"
 
@@ -159,7 +159,7 @@ def download_template(request: Request):
     header_fill = PatternFill(start_color="005B30", end_color="005B30", fill_type="solid")
     header_font = Font(color="FFFFFF", bold=True, size=11)
 
-    headers = ["아이디(지점코드)*", "비밀번호*", "사업자번호", "지점명*", "이름(담당자)", "담당자 연락처", "지점주소", "역할*"]
+    headers = ["아이디(대리점코드)*", "비밀번호*", "사업자번호", "대리점명*", "이름(담당자)", "담당자 연락처", "대리점주소", "역할*"]
     col_widths = [20, 18, 18, 22, 16, 18, 30, 26]
 
     for col_idx, (header, width) in enumerate(zip(headers, col_widths), 1):
@@ -172,9 +172,9 @@ def download_template(request: Request):
 
     example_fill = PatternFill(start_color="F0F7F2", end_color="F0F7F2", fill_type="solid")
     examples = [
-        ["MG011", "Branch!2024", "000-00-00001", "서울중구지점", "홍길동", "010-1234-5678", "서울특별시 중구 세종대로 1", "branch"],
-        ["MG012", "Branch!2024", "000-00-00002", "부산중구지점", "김철수", "010-9876-5432", "부산광역시 중구 중앙대로 1", "branch"],
-        ["WELFARE02", "Welfare!2024", "", "주관사관리자2", "이영희", "02-0000-0000", "", "welfare"],
+        ["LGD31", "Lgd31!2026", "000-00-00001", "대리점 31", "홍길동", "010-1234-5678", "서울특별시 중구 세종대로 1", "branch"],
+        ["LGD32", "Lgd32!2026", "000-00-00002", "대리점 32", "김철수", "010-9876-5432", "부산광역시 중구 중앙대로 1", "branch"],
+        ["ADMIN02", "Admin!2026", "", "관리자2", "이영희", "02-0000-0000", "", "coretail"],
     ]
     for row_idx, row_data in enumerate(examples, 2):
         for col_idx, value in enumerate(row_data, 1):
@@ -186,14 +186,14 @@ def download_template(request: Request):
     ws2["A1"] = "작성 요령"
     ws2["A1"].font = Font(bold=True, size=13)
     notes = [
-        ("아이디(지점코드)*", "로그인 ID. 영문+숫자 조합 권장. 중복 불가. 필수."),
+        ("아이디(대리점코드)*", "로그인 ID. 영문+숫자 조합 권장. 중복 불가. 필수."),
         ("비밀번호*", "초기 비밀번호. 영문+숫자+특수문자 조합 권장. 필수."),
         ("사업자번호", "예) 000-00-00000. 비워도 됨."),
-        ("지점명*", "지점 명칭. 필수."),
+        ("대리점명*", "대리점 명칭. 필수."),
         ("이름(담당자)", "담당자 성명. 비워도 됨."),
         ("담당자 연락처", "예) 010-0000-0000. 비워도 됨."),
-        ("지점주소", "지점 주소. 비워도 됨."),
-        ("역할*", "branch = 지점 담당자 / welfare = 주관사 관리자 / coretail = 운영사 관리자. 필수."),
+        ("대리점주소", "대리점 주소. 비워도 됨."),
+        ("역할*", "branch = 대리점 / coretail = 관리자(월드와이드메모리). 필수."),
     ]
     for i, (field, desc) in enumerate(notes, 3):
         ws2[f"A{i}"] = field

@@ -7,7 +7,7 @@
     <i class="bi bi-speedometer2 me-2" style="color:var(--mg)"></i>관리자 대시보드
   </h4>
   <div class="text-muted" style="font-size:12px">
-    {% if session.get('role') == 'welfare' %}주관사{% else %}매입사{% endif %} · 전체 현황
+    {% if session.get('role') == 'welfare' %}관리자{% else %}관리자{% endif %} · 전체 현황
   </div>
 </div>
 
@@ -51,7 +51,7 @@
     ('schedule_confirmed','수거예정','truck','primary'),
     ('collected','수거완료','box-seam','secondary'),
     ('priced','금액산정완료','currency-dollar','warning'),
-    ('branch_confirmed','지점승인완료','patch-check','success'),
+    ('branch_confirmed','대리점확인완료','patch-check','success'),
     ('completed','거래완료','flag-fill','success'),
   ] %}
   {% for s_key, s_name, icon, color in shortcut_statuses %}
@@ -83,7 +83,7 @@
       <thead class="table-light">
         <tr>
           <th class="ps-3">#</th>
-          <th>지점</th>
+          <th>대리점</th>
           <th>제목</th>
           <th>자산수</th>
           <th>상태</th>
