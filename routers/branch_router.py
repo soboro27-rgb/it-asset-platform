@@ -81,6 +81,11 @@ async def create_application(request: Request, db: Session = Depends(get_db)):
         notes=form.get("notes", ""),
         contact_name=form.get("contact_name", ""),
         contact_phone=form.get("contact_phone", ""),
+        customer_name=form.get("customer_name", ""),
+        customer_business_no=form.get("customer_business_no", ""),
+        customer_address=form.get("customer_address", ""),
+        customer_contact_name=form.get("customer_contact_name", ""),
+        customer_contact_phone=form.get("customer_contact_phone", ""),
         created_at=datetime.now(),
         updated_at=datetime.now(),
     )
@@ -204,6 +209,11 @@ async def update_application(request: Request, app_id: int, db: Session = Depend
     app.notes = form.get("notes", "")
     app.contact_name = form.get("contact_name", "")
     app.contact_phone = form.get("contact_phone", "")
+    app.customer_name = form.get("customer_name", "")
+    app.customer_business_no = form.get("customer_business_no", "")
+    app.customer_address = form.get("customer_address", "")
+    app.customer_contact_name = form.get("customer_contact_name", "")
+    app.customer_contact_phone = form.get("customer_contact_phone", "")
     app.updated_at = datetime.now()
 
     for asset in list(app.assets):

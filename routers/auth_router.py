@@ -36,11 +36,19 @@ def _save_log(db: Session, action: str, request: Request,
 
 
 @router.get("/login", response_class=HTMLResponse)
-def login_page(request: Request):
+def login_page(request: Request, db: Session = Depends(get_db)):
     if request.session.get("user_id"):
         role = request.session.get("role")
         return RedirectResponse("/branch/dashboard" if role == "branch" else "/admin/dashboard", status_code=302)
-    return templates.TemplateResponse("login.html", {"request": request, "error": None})
+    dealers = (
+        db.query(models.User)
+        .filter(models.User.role == "branch", models.User.is_active == True)  # noqa: E712
+        .order_by(models.User.branch_name)
+        .all()
+    )
+    return templates.TemplateResponse(
+        "login.html", {"request": request, "error": None, "dealers": dealers}
+    )
 
 
 @router.post("/login")
@@ -57,9 +65,15 @@ def login(
 
     if not user or not verify_password(password, user.password_hash):
         _save_log(db, "login_failed", request, branch_code=branch_code)
+        dealers = (
+            db.query(models.User)
+            .filter(models.User.role == "branch", models.User.is_active == True)  # noqa: E712
+            .order_by(models.User.branch_name)
+            .all()
+        )
         return templates.TemplateResponse(
             "login.html",
-            {"request": request, "error": "아이디 또는 비밀번호가 올바르지 않습니다."},
+            {"request": request, "error": "아이디 또는 비밀번호가 올바르지 않습니다.", "dealers": dealers},
         )
 
     _save_log(db, "login_success", request, user=user)

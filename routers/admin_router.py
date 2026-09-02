@@ -49,6 +49,17 @@ def _get_operator_fee_rate(db: Session) -> float:
     return 0.0
 
 
+def _get_platform_fee_rate(db: Session) -> float:
+    """플랫폼 수수료율 (%) — 기본 0. 차후 별도 산정."""
+    config = db.query(models.SystemConfig).filter(models.SystemConfig.key == "platform_fee_rate").first()
+    if config:
+        try:
+            return float(config.value)
+        except (ValueError, TypeError):
+            return 0.0
+    return 0.0
+
+
 @router.get("/dashboard", response_class=HTMLResponse)
 def dashboard(request: Request, db: Session = Depends(get_db)):
     user, redir = _check(request)
@@ -116,6 +127,7 @@ def application_detail(request: Request, app_id: int, error: str = "", db: Sessi
 
     welfare_fee_rate   = _get_fee_rate(db)
     operator_fee_rate  = _get_operator_fee_rate(db)
+    platform_fee_rate  = _get_platform_fee_rate(db)
     return templates.TemplateResponse(
         "admin/application_detail.html",
         {
@@ -124,6 +136,7 @@ def application_detail(request: Request, app_id: int, error: str = "", db: Sessi
             "app": app,
             "welfare_fee_rate": welfare_fee_rate,
             "operator_fee_rate": operator_fee_rate,
+            "platform_fee_rate": platform_fee_rate,
             "error": error,
         },
     )
@@ -897,21 +910,36 @@ async def set_pricing(request: Request, app_id: int, db: Session = Depends(get_d
             db.flush()
             db.refresh(app)
 
-        operator_fee_rate = _get_operator_fee_rate(db)
-        welfare_fee_rate  = _get_fee_rate(db)
+        platform_fee_rate = _get_platform_fee_rate(db)
+        branch_total = total * (1 - platform_fee_rate / 100)
 
-        # 2단계 수수료 계산
-        # 1단계: 운영사 수수료 차감 → 복지회에 보이는 금액
-        welfare_view = total * (1 - operator_fee_rate / 100)
-        # 2단계: 복지회 수수료 차감 → 지점 수령 예정액
-        branch_total = welfare_view * (1 - welfare_fee_rate / 100)
+        # 정산 방식
+        payout_mode = form.get("payout_mode", "cash")
+        if payout_mode not in ("cash", "credit"):
+            payout_mode = "cash"
 
-        app.settlement.total_amount       = total
-        app.settlement.operator_fee_rate  = operator_fee_rate
-        app.settlement.welfare_view_amount = welfare_view
-        app.settlement.welfare_fee_rate   = welfare_fee_rate
+        def _num(key: str) -> float:
+            try:
+                return float(str(form.get(key, 0) or 0).replace(",", ""))
+            except (ValueError, TypeError):
+                return 0.0
+
+        app.settlement.total_amount        = total
+        app.settlement.platform_fee_rate   = platform_fee_rate
         app.settlement.branch_total_amount = branch_total
         app.settlement.pricing_notes = form.get("pricing_notes", "")
+        app.settlement.payout_mode = payout_mode
+        if payout_mode == "credit":
+            app.settlement.new_purchase_desc   = form.get("new_purchase_desc", "")
+            app.settlement.new_purchase_amount = _num("new_purchase_amount")
+            credit = _num("credit_applied") or branch_total
+            app.settlement.credit_applied = min(credit, branch_total)
+            app.settlement.remaining_cash = max(0.0, branch_total - app.settlement.credit_applied)
+        else:
+            app.settlement.new_purchase_desc = ""
+            app.settlement.new_purchase_amount = 0.0
+            app.settlement.credit_applied = 0.0
+            app.settlement.remaining_cash = branch_total
         app.status = "priced"
         app.updated_at = datetime.now()
         db.commit()
@@ -934,6 +962,7 @@ def settings_page(request: Request, db: Session = Depends(get_db)):
             "session": request.session,
             "operator_fee_rate": _get_operator_fee_rate(db),
             "welfare_fee_rate":  _get_fee_rate(db),
+            "platform_fee_rate": _get_platform_fee_rate(db),
         },
     )
 
@@ -957,6 +986,7 @@ async def save_settings(request: Request, db: Session = Depends(get_db)):
     for key, val in [
         ("operator_fee_rate", _clamp("operator_fee_rate")),
         ("welfare_fee_rate",  _clamp("welfare_fee_rate")),
+        ("platform_fee_rate", _clamp("platform_fee_rate")),
     ]:
         config = db.query(models.SystemConfig).filter(models.SystemConfig.key == key).first()
         if config:
@@ -969,73 +999,63 @@ async def save_settings(request: Request, db: Session = Depends(get_db)):
     return RedirectResponse("/admin/settings", status_code=302)
 
 
-@router.post("/applications/{app_id}/buyer-payment")
-def buyer_payment(request: Request, app_id: int, db: Session = Depends(get_db)):
-    """매입사 → 운영사 입금 확인"""
+@router.post("/applications/{app_id}/dealer-payment")
+async def dealer_payment(request: Request, app_id: int, db: Session = Depends(get_db)):
+    """월드와이드메모리 → 대리점 지급 완료 처리 (월별 일괄 지급)."""
     user, redir = _check(request)
     if redir:
         return redir
     if user["role"] not in ("coretail", "operator"):
         return RedirectResponse(f"/admin/applications/{app_id}", status_code=302)
 
-    app = db.query(models.Application).filter(
-        models.Application.id == app_id,
-        models.Application.status == "branch_confirmed",
-    ).first()
-    if app and app.settlement and not app.settlement.buyer_paid:
-        app.settlement.buyer_paid = True
-        app.settlement.buyer_paid_at = datetime.now()
-        app.updated_at = datetime.now()
-        db.commit()
-
-    return RedirectResponse(f"/admin/applications/{app_id}", status_code=302)
-
-
-@router.post("/applications/{app_id}/operator-payment")
-def operator_payment(request: Request, app_id: int, db: Session = Depends(get_db)):
-    """운영사 → 복지회 입금 확인"""
-    user, redir = _check(request)
-    if redir:
-        return redir
-    if user["role"] not in ("coretail", "operator"):
-        return RedirectResponse(f"/admin/applications/{app_id}", status_code=302)
-
-    app = db.query(models.Application).filter(
-        models.Application.id == app_id,
-        models.Application.status == "branch_confirmed",
-    ).first()
-    if app and app.settlement and app.settlement.buyer_paid and not app.settlement.operator_paid:
-        app.settlement.operator_paid = True
-        app.settlement.operator_paid_at = datetime.now()
-        app.updated_at = datetime.now()
-        db.commit()
-
-    return RedirectResponse(f"/admin/applications/{app_id}", status_code=302)
-
-
-@router.post("/applications/{app_id}/complete")
-def complete_payment(request: Request, app_id: int, db: Session = Depends(get_db)):
-    user, redir = _check(request)
-    if redir:
-        return redir
-    if user["role"] != "welfare":
-        return RedirectResponse(f"/admin/applications/{app_id}", status_code=302)
-
+    form = await request.form()
     app = db.query(models.Application).filter(
         models.Application.id == app_id,
         models.Application.status == "branch_confirmed",
     ).first()
 
-    if app and app.settlement and app.settlement.operator_paid:
-        app.settlement.welfare_confirmed = True
-        app.settlement.welfare_confirmed_at = datetime.now()
+    if app and app.settlement and not app.settlement.dealer_paid:
+        pay_date = form.get("payment_date", "").strip() or datetime.now().strftime("%Y-%m-%d")
+        app.settlement.dealer_paid = True
+        app.settlement.dealer_paid_at = datetime.now()
         app.settlement.payment_confirmed = True
-        app.settlement.payment_date = datetime.now().strftime("%Y-%m-%d")
+        app.settlement.payment_date = pay_date
         app.status = "completed"
         app.updated_at = datetime.now()
         db.commit()
 
     return RedirectResponse(f"/admin/applications/{app_id}", status_code=302)
+
+
+@router.post("/settlement/pay-batch")
+async def settlement_pay_batch(request: Request, db: Session = Depends(get_db)):
+    """대리점별 월별 일괄 지급 — branch_confirmed 상태의 신청서를 한 번에 완료 처리."""
+    user, redir = _check(request)
+    if redir:
+        return redir
+    if user["role"] not in ("coretail", "operator"):
+        return RedirectResponse("/admin/settlement", status_code=302)
+
+    form = await request.form()
+    app_ids = [int(x) for x in form.getlist("app_ids[]") if str(x).isdigit()]
+    pay_date = form.get("payment_date", "").strip() or datetime.now().strftime("%Y-%m-%d")
+    month = form.get("month", "")
+
+    apps = db.query(models.Application).filter(
+        models.Application.id.in_(app_ids),
+        models.Application.status == "branch_confirmed",
+    ).all()
+    for app in apps:
+        if app.settlement and not app.settlement.dealer_paid:
+            app.settlement.dealer_paid = True
+            app.settlement.dealer_paid_at = datetime.now()
+            app.settlement.payment_confirmed = True
+            app.settlement.payment_date = pay_date
+            app.status = "completed"
+            app.updated_at = datetime.now()
+    db.commit()
+
+    return RedirectResponse(f"/admin/settlement?month={month}" if month else "/admin/settlement", status_code=302)
 
 
 # ── 가견적 기준가 관리 ─────────────────────────────────────
@@ -1187,6 +1207,38 @@ def _get_settlement_data(month: str, db: Session):
     return total_count, total_amount, detail_rows
 
 
+def _group_by_dealer(apps):
+    """신청서 목록을 대리점(branch_name)별로 묶어 소계 계산."""
+    groups: dict = {}
+    for app in apps:
+        st = app.settlement
+        if not st:
+            continue
+        key = app.user.branch_name
+        g = groups.setdefault(key, {
+            "branch_name": key,
+            "business_no": getattr(app.user, "business_no", "") or "-",
+            "rows": [], "subtotal": 0.0, "cash_total": 0.0, "credit_total": 0.0,
+        })
+        g["rows"].append({
+            "app_id": app.id,
+            "title": app.title or f"#{app.id}",
+            "customer_name": app.customer_name or "-",
+            "payout_mode": st.payout_mode,
+            "amount": st.branch_total_amount,
+            "credit_applied": st.credit_applied,
+            "remaining_cash": st.remaining_cash,
+            "payment_date": st.payment_date,
+        })
+        g["subtotal"] += st.branch_total_amount
+        if st.payout_mode == "credit":
+            g["credit_total"] += st.credit_applied
+            g["cash_total"] += st.remaining_cash
+        else:
+            g["cash_total"] += st.branch_total_amount
+    return [groups[k] for k in sorted(groups)]
+
+
 @router.get("/settlement", response_class=HTMLResponse)
 def settlement_page(request: Request, month: str = "", db: Session = Depends(get_db)):
     user, redir = _check(request)
@@ -1198,6 +1250,25 @@ def settlement_page(request: Request, month: str = "", db: Session = Depends(get
 
     total_count, total_amount, detail_rows = _get_settlement_data(month, db)
 
+    # 지급 완료 — 대리점별
+    paid_apps = (
+        db.query(models.Application).join(models.Settlement)
+        .filter(models.Application.status == "completed",
+                models.Settlement.payment_date.like(f"{month}-%"))
+        .all()
+    )
+    paid_groups = _group_by_dealer(paid_apps)
+
+    # 지급 대기 — 대리점이 금액 확인했으나 아직 미지급 (월 무관)
+    pending_apps = (
+        db.query(models.Application).join(models.Settlement)
+        .filter(models.Application.status == "branch_confirmed",
+                models.Settlement.dealer_paid == False)  # noqa: E712
+        .all()
+    )
+    pending_groups = _group_by_dealer(pending_apps)
+    pending_total = sum(g["subtotal"] for g in pending_groups)
+
     return templates.TemplateResponse(
         "admin/settlement.html",
         {
@@ -1207,6 +1278,10 @@ def settlement_page(request: Request, month: str = "", db: Session = Depends(get
             "total_count": total_count,
             "total_amount": total_amount,
             "detail_rows": detail_rows,
+            "paid_groups": paid_groups,
+            "pending_groups": pending_groups,
+            "pending_total": pending_total,
+            "today": datetime.now().strftime("%Y-%m-%d"),
         },
     )
 

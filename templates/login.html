@@ -3,94 +3,78 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>로그인 - IT자산 매각 플랫폼</title>
+  <title>로그인 · IT자산 매입 플랫폼</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet"/>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet"/>
+  <link href="https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet"/>
   <style>
+    :root { --lg: #A50034; --lg-dark: #8A002C; --ink: #1A1A1A; --ink-2: #6B6B6B; --line: #E4E4E4; }
+    * { box-sizing: border-box; }
     body {
-      background: linear-gradient(135deg, #0f2752 0%, #1a3a7a 40%, #1d4ed8 80%, #3b82f6 100%);
+      background: #fff;
       min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      font-family: 'Pretendard','Pretendard Variable',-apple-system,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+      color: var(--ink);
     }
-
     body::before {
-      content: '';
-      position: fixed;
-      inset: 0;
-      background:
-        radial-gradient(ellipse at 20% 50%, rgba(96,165,250,.12) 0%, transparent 60%),
-        radial-gradient(ellipse at 80% 20%, rgba(29,78,216,.18) 0%, transparent 50%);
-      z-index: 0;
-      pointer-events: none;
+      content: ''; position: fixed; left: 0; top: 0; right: 0; height: 4px;
+      background: var(--lg); z-index: 2;
     }
 
-    .login-wrap { width: 100%; max-width: 440px; padding: 16px; position: relative; z-index: 1; }
+    .login-wrap { width: 100%; max-width: 400px; padding: 24px; }
 
-    .brand-header { text-align: center; margin-bottom: 20px; }
-    .wm-logo-wrap { display: inline-block; margin-bottom: 14px; filter: drop-shadow(0 4px 12px rgba(0,0,0,.3)); }
+    .brand-header { margin-bottom: 28px; }
+    .brand-header .kicker {
+      font-size: 11px; font-weight: 800; letter-spacing: .16em;
+      color: var(--lg); text-transform: uppercase; margin-bottom: 8px;
+    }
     .brand-header h1 {
-      font-size: 20px; font-weight: 700; color: #fff;
-      margin: 0 0 4px; text-shadow: 0 1px 4px rgba(0,0,0,.2);
+      font-size: 24px; font-weight: 800; letter-spacing: -.02em;
+      color: var(--ink); margin: 0;
     }
+    .brand-header p { font-size: 13px; color: var(--ink-2); margin: 6px 0 0; }
 
     .login-card {
-      background: rgba(255,255,255,.97);
-      border-radius: 16px;
-      box-shadow: 0 8px 32px rgba(15,39,82,.35), 0 1px 6px rgba(0,0,0,.08);
-      border: 1px solid rgba(147,197,253,.3);
-      padding: 32px 36px;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 2px;
+      padding: 32px 32px 28px;
     }
 
-    .form-label { font-size: 13px; font-weight: 600; color: #1e3a8a; }
-    .input-group-text { background: #EFF6FF; border-color: #BFDBFE; color: #1d4ed8; }
-    .form-control {
-      font-size: 14px; padding: 10px 14px;
-      border-radius: 0 8px 8px 0 !important;
-      border-color: #BFDBFE;
+    .form-label { font-size: 12px; font-weight: 700; color: var(--ink); letter-spacing: -.01em; }
+    .input-group-text { background: #F4F4F4; border-color: var(--line); color: var(--ink-2); border-radius: 0; }
+    .form-control, .form-select {
+      font-size: 14px; padding: 11px 14px; border-radius: 0; border-color: var(--line);
     }
-    .form-control:focus { border-color: #1d4ed8; box-shadow: 0 0 0 3px rgba(29,78,216,.15); }
-    .input-group .input-group-text { border-radius: 8px 0 0 8px !important; }
+    .form-control:focus, .form-select:focus { border-color: var(--lg); box-shadow: 0 0 0 3px rgba(165,0,52,.12); }
 
     .btn-login {
-      background: linear-gradient(135deg, #1d4ed8, #3b82f6);
-      color: #fff; border: none; border-radius: 10px;
+      background: var(--lg); color: #fff; border: none; border-radius: 0;
       width: 100%; padding: 13px; font-size: 15px; font-weight: 700;
-      letter-spacing: .3px; transition: all .2s;
-      box-shadow: 0 4px 14px rgba(29,78,216,.4);
+      transition: background .15s;
     }
-    .btn-login:hover {
-      background: linear-gradient(135deg, #1a3fc7, #1d4ed8);
-      color: #fff; transform: translateY(-1px);
-      box-shadow: 0 6px 18px rgba(29,78,216,.5);
-    }
-    .btn-login:active { transform: translateY(0); }
+    .btn-login:hover { background: var(--lg-dark); color: #fff; }
 
     .divider {
       display: flex; align-items: center; gap: 12px;
-      margin: 20px 0; color: #CBD5E1; font-size: 12px;
+      margin: 18px 0 12px; color: #B0B0B0; font-size: 11px; letter-spacing: .1em;
     }
-    .divider::before, .divider::after {
-      content: ''; flex: 1; height: 1px; background: #E2E8F0;
-    }
+    .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--line); }
 
     .footer-links {
-      text-align: center; margin-top: 20px;
-      display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;
+      margin-top: 22px; display: flex; gap: 8px; flex-wrap: wrap;
     }
     .footer-links a {
-      color: #93C5FD; font-size: 12px; text-decoration: none;
+      color: var(--ink-2); font-size: 12px; text-decoration: none;
       display: inline-flex; align-items: center; gap: 5px;
-      border: 1px solid rgba(147,197,253,.4);
-      padding: 7px 18px; border-radius: 20px;
-      background: rgba(255,255,255,.08); transition: all .2s;
+      border: 1px solid var(--line); padding: 8px 16px; border-radius: 0;
+      background: #fff; transition: all .15s;
     }
-    .footer-links a:hover { background: rgba(255,255,255,.15); color: #fff; }
-    .footer-copy { text-align: center; margin-top: 14px; font-size: 11px; color: rgba(255,255,255,.35); }
-    .footer-copy span { color: rgba(147,197,253,.7); font-weight: 600; }
+    .footer-links a:hover { border-color: var(--ink); color: var(--ink); }
+    .footer-copy { margin-top: 16px; font-size: 11px; color: #9A9A9A; }
+    .footer-copy span { color: var(--ink-2); font-weight: 700; }
   </style>
 </head>
 <body>
@@ -98,43 +82,39 @@
 
   <!-- 브랜드 헤더 -->
   <div class="brand-header">
-    <div class="wm-logo-wrap">
-      <svg viewBox="0 0 100 60" width="90" height="54" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <linearGradient id="wdL" x1="30" y1="0" x2="30" y2="60" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stop-color="#93c5fd"/>
-            <stop offset="50%" stop-color="#60a5fa"/>
-            <stop offset="100%" stop-color="#dbeafe"/>
-          </linearGradient>
-          <linearGradient id="wdR" x1="80" y1="0" x2="80" y2="60" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stop-color="#bfdbfe"/>
-            <stop offset="50%" stop-color="#93c5fd"/>
-            <stop offset="100%" stop-color="#eff6ff"/>
-          </linearGradient>
-        </defs>
-        <path d="M2 3 L13 3 L22 38 L31 16 L40 38 L49 3 L60 3 L43 57 L31 27 L19 57 Z" fill="url(#wdL)"/>
-        <path d="M63 3 L77 3 Q97 3 97 30 Q97 57 77 57 L63 57 L63 47 L75 47 Q84 47 84 30 Q84 13 75 13 L63 13 Z" fill="url(#wdR)"/>
-      </svg>
-    </div>
-    <h1>IT자산 매각 플랫폼</h1>
+    <div class="kicker">IT Asset Buyback</div>
+    <h1>IT자산 매입 플랫폼</h1>
+    <p>고객사 보유 IT자산 매입 · 구매지원금 정산</p>
   </div>
 
   <!-- 로그인 카드 -->
   <div class="login-card">
     {% if error %}
-    <div class="alert d-flex align-items-center gap-2 py-2 px-3 mb-4"
-         style="font-size:13px;border-radius:8px;background:#FFF5F5;border:1px solid #FFCDD2;color:#C62828">
+    <div class="d-flex align-items-center gap-2 py-2 px-3 mb-4"
+         style="font-size:13px;background:#FBEEF2;border:1px solid #EAD3DB;color:#A50034">
       <i class="bi bi-exclamation-circle-fill"></i> {{ error }}
     </div>
     {% endif %}
 
     <form method="post" action="/login">
-      <div class="mb-3">
+      <div class="mb-3" id="dealerField">
+        <label class="form-label">대리점</label>
+        <div class="input-group">
+          <span class="input-group-text"><i class="bi bi-shop"></i></span>
+          <select name="branch_code" class="form-control" id="dealerSelect" required>
+            <option value="" selected disabled>대리점을 선택하세요</option>
+            {% for d in dealers %}
+            <option value="{{ d.branch_code }}">{{ d.branch_name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="mb-3 d-none" id="codeField">
         <label class="form-label">아이디</label>
         <div class="input-group">
           <span class="input-group-text"><i class="bi bi-person-badge-fill"></i></span>
-          <input type="text" name="branch_code" class="form-control"
-                 placeholder="아이디를 입력하세요" required autofocus/>
+          <input type="text" name="branch_code" class="form-control" id="codeInput"
+                 placeholder="아이디를 입력하세요" disabled/>
         </div>
       </div>
       <div class="mb-4">
@@ -150,8 +130,36 @@
       </button>
     </form>
 
-    <div class="divider">접속 안내</div>
+    <div class="divider">ACCESS</div>
+    <div class="text-center">
+      <a href="#" id="adminToggle" style="font-size:12px;color:var(--ink-2);text-decoration:none">
+        <i class="bi bi-person-gear"></i> 관리자 로그인
+      </a>
+    </div>
   </div>
+
+  <script>
+    (function () {
+      var toggle = document.getElementById('adminToggle');
+      var dealerField = document.getElementById('dealerField');
+      var codeField = document.getElementById('codeField');
+      var dealerSelect = document.getElementById('dealerSelect');
+      var codeInput = document.getElementById('codeInput');
+      var admin = false;
+      toggle.addEventListener('click', function (e) {
+        e.preventDefault();
+        admin = !admin;
+        dealerField.classList.toggle('d-none', admin);
+        codeField.classList.toggle('d-none', !admin);
+        dealerSelect.disabled = admin;
+        codeInput.disabled = !admin;
+        toggle.innerHTML = admin
+          ? '<i class="bi bi-shop"></i> 대리점 로그인'
+          : '<i class="bi bi-person-gear"></i> 관리자 로그인';
+        (admin ? codeInput : dealerSelect).focus();
+      });
+    })();
+  </script>
 
   <!-- 하단 링크 -->
   <div class="footer-links">
@@ -163,7 +171,7 @@
     </a>
   </div>
   <div class="footer-copy">
-    Powered by <span>WorldWideMemory IT자산 매각 플랫폼</span>
+    운영 <span>월드와이드메모리</span>
   </div>
 </div>
 </body>

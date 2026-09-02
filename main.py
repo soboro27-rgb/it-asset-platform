@@ -102,6 +102,36 @@ try:
 except Exception as _e:
     print(f"Migration warning (settlements): {_e}")
 
+# Migration: LG 대리점 시나리오 — 고객사 필드 + 정산 방식 컬럼
+try:
+    _apcols = [c['name'] for c in _sa_inspect(engine).get_columns('applications')]
+    _scols = [c['name'] for c in _sa_inspect(engine).get_columns('settlements')]
+    with engine.connect() as _c:
+        for _n, _d in [
+            ("customer_name", "VARCHAR(100) DEFAULT ''"),
+            ("customer_business_no", "VARCHAR(20) DEFAULT ''"),
+            ("customer_address", "VARCHAR(200) DEFAULT ''"),
+            ("customer_contact_name", "VARCHAR(50) DEFAULT ''"),
+            ("customer_contact_phone", "VARCHAR(20) DEFAULT ''"),
+        ]:
+            if _n not in _apcols:
+                _c.execute(text(f"ALTER TABLE applications ADD COLUMN {_n} {_d}"))
+        for _n, _d in [
+            ("platform_fee_rate", "FLOAT DEFAULT 0.0"),
+            ("payout_mode", "VARCHAR(10) DEFAULT 'cash'"),
+            ("new_purchase_desc", "TEXT DEFAULT ''"),
+            ("new_purchase_amount", "FLOAT DEFAULT 0.0"),
+            ("credit_applied", "FLOAT DEFAULT 0.0"),
+            ("remaining_cash", "FLOAT DEFAULT 0.0"),
+            ("dealer_paid", "BOOLEAN DEFAULT FALSE"),
+            ("dealer_paid_at", "TIMESTAMP"),
+        ]:
+            if _n not in _scols:
+                _c.execute(text(f"ALTER TABLE settlements ADD COLUMN {_n} {_d}"))
+        _c.commit()
+except Exception as _e:
+    print(f"Migration warning (LG dealer scenario): {_e}")
+
 # Migration: login_logs 테이블 생성
 try:
     _existing_tables = _sa_inspect(engine).get_table_names()
@@ -162,7 +192,14 @@ try:
 except Exception as _e:
     print(f"Migration warning (asset_items estimated): {_e}")
 
-app = FastAPI(title="IT자산 매각 플랫폼")
+# LG전자 대리점 30개사 초기 계정 시드 (멱등)
+try:
+    from seed_dealers import seed_dealers
+    seed_dealers()
+except Exception as _e:
+    print(f"seed warning (dealers): {_e}")
+
+app = FastAPI(title="IT자산 매입 플랫폼")
 app.add_middleware(SessionMiddleware, secret_key=os.getenv("SECRET_KEY", "mgit-saemaul-2024-secret"))
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"

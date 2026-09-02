@@ -35,6 +35,12 @@ class Application(Base):
     notes = Column(Text, default="")
     contact_name = Column(String(50), default="")   # 담당자 이름
     contact_phone = Column(String(20), default="")  # 담당자 전화번호
+    # 고객사(최종 고객) 정보 — 대리점이 대행 입력. 별도 로그인 없음.
+    customer_name = Column(String(100), default="")           # 고객사 상호
+    customer_business_no = Column(String(20), default="")     # 고객사 사업자번호
+    customer_address = Column(String(200), default="")        # 고객사 주소
+    customer_contact_name = Column(String(50), default="")    # 고객사 담당자
+    customer_contact_phone = Column(String(20), default="")   # 고객사 담당자 연락처
     submitted_at = Column(DateTime, nullable=True)
     approved_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.now)
@@ -91,22 +97,36 @@ class Settlement(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     application_id = Column(Integer, ForeignKey("applications.id"), unique=True, nullable=False)
-    total_amount = Column(Float, default=0.0)           # 매입사 매입 합계
-    operator_fee_rate = Column(Float, default=0.0)     # 운영사 수수료율 스냅샷 (%)
-    welfare_view_amount = Column(Float, default=0.0)   # 복지회에 보이는 금액 (운영사 수수료 차감 후)
-    welfare_fee_rate = Column(Float, default=0.0)      # 복지회 수수료율 스냅샷 (%)
-    branch_total_amount = Column(Float, default=0.0)   # 지점 수령 예정액 (운영사+복지회 수수료 모두 차감)
+    total_amount = Column(Float, default=0.0)           # 매입 확정 합계
+    platform_fee_rate = Column(Float, default=0.0)      # 플랫폼 수수료율 스냅샷 (%) — 기본 0, 차후 산정
+    branch_total_amount = Column(Float, default=0.0)    # 대리점 지급 예정액 (수수료 차감 후)
     pricing_notes = Column(Text, default="")
-    branch_confirmed = Column(Boolean, default=False)
+    branch_confirmed = Column(Boolean, default=False)   # 대리점이 금액 확인
     branch_confirmed_at = Column(DateTime, nullable=True)
-    buyer_paid = Column(Boolean, default=False)         # 매입사→운영사 입금 확인
+
+    # 정산 방식: cash(현금 정산) / credit(신품 구매지원금 차감)
+    payout_mode = Column(String(10), default="cash")
+    new_purchase_desc = Column(Text, default="")        # credit: 대상 신품 구매 건
+    new_purchase_amount = Column(Float, default=0.0)    # credit: 신품 구매 금액
+    credit_applied = Column(Float, default=0.0)         # credit: 구매지원금으로 차감한 금액
+    remaining_cash = Column(Float, default=0.0)         # credit: 잔여 현금 정산액
+
+    # 월드와이드메모리 → 대리점 월별 일괄 지급
+    dealer_paid = Column(Boolean, default=False)
+    dealer_paid_at = Column(DateTime, nullable=True)
+    payment_date = Column(String(20), default="")
+    payment_confirmed = Column(Boolean, default=False)
+
+    # (구) 4자 정산 체인 호환용 — LG 시나리오에서는 미사용
+    operator_fee_rate = Column(Float, default=0.0)
+    welfare_view_amount = Column(Float, default=0.0)
+    welfare_fee_rate = Column(Float, default=0.0)
+    buyer_paid = Column(Boolean, default=False)
     buyer_paid_at = Column(DateTime, nullable=True)
-    operator_paid = Column(Boolean, default=False)      # 운영사→복지회 입금 확인
+    operator_paid = Column(Boolean, default=False)
     operator_paid_at = Column(DateTime, nullable=True)
     welfare_confirmed = Column(Boolean, default=False)
     welfare_confirmed_at = Column(DateTime, nullable=True)
-    payment_date = Column(String(20), default="")
-    payment_confirmed = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.now)
 
     application = relationship("Application", back_populates="settlement")

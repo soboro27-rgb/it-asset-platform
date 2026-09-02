@@ -5,120 +5,138 @@
 <div class="page-header d-flex justify-content-between align-items-center">
   <div>
     <h4><i class="bi bi-receipt me-2" style="color:var(--mg)"></i>정산 관리</h4>
-    <div class="text-muted" style="font-size:12px">월별 지점 정산 내역 조회</div>
+    <div class="text-muted" style="font-size:12px">대리점별 월별 일괄 지급</div>
   </div>
   <a href="/admin/settlement/export?month={{ month }}" class="btn btn-sm btn-mg">
     <i class="bi bi-file-earmark-excel me-1"></i>엑셀 다운로드
   </a>
 </div>
 
+<!-- 지급 대기: 대리점이 금액 확인했으나 아직 미지급 -->
+<div class="mb-2 fw-semibold" style="font-size:13px">
+  <i class="bi bi-hourglass-split me-1" style="color:#f57c00"></i> 지급 대기
+  {% if pending_total %}<span class="text-muted">— 합계 {{ "{:,.0f}".format(pending_total) }}원</span>{% endif %}
+</div>
+{% if pending_groups %}
+<form method="post" action="/admin/settlement/pay-batch"
+      onsubmit="return confirm('선택한 건을 대리점 지급 완료로 처리하시겠습니까?\n되돌릴 수 없습니다.')">
+  <input type="hidden" name="month" value="{{ month }}"/>
+  <div class="d-flex align-items-center gap-2 mb-2" style="font-size:13px">
+    <label class="fw-semibold" style="white-space:nowrap">지급일</label>
+    <input type="date" name="payment_date" value="{{ today }}" class="form-control form-control-sm" style="width:160px"/>
+    <button type="submit" class="btn btn-sm btn-success"><i class="bi bi-bank me-1"></i>선택 건 일괄 지급 처리</button>
+    <span class="text-muted" style="font-size:12px">체크한 신청서를 한 번에 완료 처리합니다.</span>
+  </div>
+  {% for g in pending_groups %}
+  <div class="card mb-2">
+    <div class="card-header d-flex justify-content-between align-items-center" style="font-size:13px">
+      <span>
+        <input type="checkbox" class="form-check-input me-2 grp-check" data-grp="{{ loop.index }}" checked onchange="toggleGrp(this)"/>
+        <strong>{{ g.branch_name }}</strong>
+        <span class="text-muted ms-1">{{ g.business_no }}</span>
+      </span>
+      <span>
+        <span class="text-muted">현금 {{ "{:,.0f}".format(g.cash_total) }}원</span>
+        {% if g.credit_total %}<span class="text-info ms-2">지원금 {{ "{:,.0f}".format(g.credit_total) }}원</span>{% endif %}
+        <strong class="ms-2" style="color:var(--mg)">소계 {{ "{:,.0f}".format(g.subtotal) }}원</strong>
+      </span>
+    </div>
+    <div class="card-body p-0">
+      <table class="table table-sm mb-0" style="font-size:13px">
+        <thead class="table-light">
+          <tr><th style="width:36px"></th><th class="ps-2">신청서</th><th>고객사</th><th class="text-center">방식</th>
+            <th class="text-end">지급액</th><th class="text-end pe-3">현금 정산액</th></tr>
+        </thead>
+        <tbody>
+          {% for r in g.rows %}
+          <tr>
+            <td class="text-center"><input type="checkbox" name="app_ids[]" value="{{ r.app_id }}" class="form-check-input" checked></td>
+            <td class="ps-2"><a href="/admin/applications/{{ r.app_id }}">{{ r.title }}</a></td>
+            <td>{{ r.customer_name }}</td>
+            <td class="text-center">
+              {% if r.payout_mode == 'credit' %}<span class="badge bg-info text-dark">지원금 차감</span>
+              {% else %}<span class="badge bg-secondary">현금</span>{% endif %}
+            </td>
+            <td class="text-end">{{ "{:,.0f}".format(r.amount) }}원</td>
+            <td class="text-end pe-3 fw-semibold" style="color:var(--mg)">
+              {% if r.payout_mode == 'credit' %}{{ "{:,.0f}".format(r.remaining_cash) }}원{% else %}{{ "{:,.0f}".format(r.amount) }}원{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endfor %}
+</form>
+{% else %}
+<div class="card mb-4"><div class="text-center py-4 text-muted" style="font-size:13px">지급 대기 중인 건이 없습니다.</div></div>
+{% endif %}
+
 <!-- 월 선택 -->
-<div class="card mb-4">
+<div class="card mt-4 mb-3">
   <div class="card-body py-2 px-3">
     <form method="get" action="/admin/settlement" class="d-flex align-items-center gap-3">
-      <label class="fw-semibold" style="font-size:13px;white-space:nowrap">조회 월</label>
+      <label class="fw-semibold" style="font-size:13px;white-space:nowrap">지급 완료 조회 월</label>
       <input type="month" name="month" value="{{ month }}" class="form-control form-control-sm" style="width:160px"/>
-      <button type="submit" class="btn btn-sm btn-mg">
-        <i class="bi bi-search me-1"></i>조회
-      </button>
-      <span class="text-muted" style="font-size:12px">거래완료(completed) 상태의 정산 건만 집계됩니다.</span>
+      <button type="submit" class="btn btn-sm btn-mg"><i class="bi bi-search me-1"></i>조회</button>
     </form>
   </div>
 </div>
 
-<!-- 월별 정산서 요약 -->
+<!-- 지급 완료: 대리점별 -->
 <div class="mb-2 fw-semibold" style="font-size:13px">
-  <i class="bi bi-dot" style="color:var(--mg)"></i> 월별 정산서 (요약)
+  <i class="bi bi-check-circle me-1" style="color:var(--mg)"></i>
+  {{ month[:4] }}년 {{ month[5:7] }}월 지급 완료
+  {% if total_amount %}<span class="text-muted">— {{ total_count }}건 / {{ "{:,.0f}".format(total_amount) }}원</span>{% endif %}
 </div>
-<div class="card mb-4">
-  <div class="card-body p-0">
-    <table class="table mb-0" style="font-size:13px">
-      <thead class="table-light">
-        <tr>
-          <th class="ps-4 text-center" style="width:40%">구분</th>
-          <th class="text-center" style="width:30%">건수</th>
-          <th class="text-center pe-4" style="width:30%">매각금액</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td class="ps-4 text-center">
-            <span class="fw-semibold">{{ month[:4] }}년 {{ month[5:7] }}월 정산</span>
-          </td>
-          <td class="text-center">
-            {% if total_count > 0 %}
-              <span class="fw-semibold">{{ total_count }}건</span>
-            {% else %}
-              <span class="text-muted">-</span>
-            {% endif %}
-          </td>
-          <td class="text-center pe-4">
-            {% if total_amount > 0 %}
-              <span class="fw-semibold" style="color:var(--mg)">{{ "{:,.0f}".format(total_amount) }}원</span>
-            {% else %}
-              <span class="text-muted">-</span>
-            {% endif %}
-          </td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-</div>
-
-<!-- 월별 정산 상세내역 -->
-<div class="mb-2 fw-semibold" style="font-size:13px">
-  <i class="bi bi-dot" style="color:var(--mg)"></i> 월별 정산 상세내역
-</div>
-<div class="card">
-  <div class="card-body p-0">
-    {% if detail_rows %}
-    <table class="table table-hover mb-0" style="font-size:13px">
-      <thead class="table-light">
-        <tr>
-          <th class="ps-3">일자</th>
-          <th>사업자번호</th>
-          <th>지점명</th>
-          <th>품목</th>
-          <th class="text-center">수량</th>
-          <th class="text-end pe-3">금액</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for row in detail_rows %}
-        <tr>
-          <td class="ps-3" style="color:#888">{{ row.date }}</td>
-          <td style="color:#888">{{ row.business_no if row.business_no else '-' }}</td>
-          <td class="fw-semibold">{{ row.branch_name }}</td>
-          <td>
-            <span class="badge rounded-pill" style="background:var(--mg-pale);color:var(--mg);border:1px solid var(--mg-border);font-size:11px">
-              {{ row.category }}
-            </span>
-          </td>
-          <td class="text-center">{{ row.quantity }}대</td>
-          <td class="text-end pe-3 fw-semibold" style="color:var(--mg)">
-            {{ "{:,.0f}".format(row.amount) }}원
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-      <tfoot class="table-light">
-        <tr>
-          <td colspan="4" class="ps-3 fw-semibold text-end pe-2">합계</td>
-          <td class="text-center fw-semibold">
-            {{ detail_rows | sum(attribute='quantity') }}대
-          </td>
-          <td class="text-end pe-3 fw-semibold" style="color:var(--mg)">
-            {{ "{:,.0f}".format(detail_rows | sum(attribute='amount')) }}원
-          </td>
-        </tr>
-      </tfoot>
-    </table>
-    {% else %}
-    <div class="text-center py-5 text-muted">
-      <i class="bi bi-inbox" style="font-size:40px;display:block;margin-bottom:10px;opacity:.3"></i>
-      {{ month[:4] }}년 {{ month[5:7] }}월에 완료된 정산 건이 없습니다.
+{% if paid_groups %}
+  {% for g in paid_groups %}
+  <div class="card mb-2">
+    <div class="card-header d-flex justify-content-between align-items-center" style="font-size:13px">
+      <span><strong>{{ g.branch_name }}</strong> <span class="text-muted ms-1">{{ g.business_no }}</span></span>
+      <span>
+        <span class="text-muted">현금 {{ "{:,.0f}".format(g.cash_total) }}원</span>
+        {% if g.credit_total %}<span class="text-info ms-2">지원금 {{ "{:,.0f}".format(g.credit_total) }}원</span>{% endif %}
+        <strong class="ms-2" style="color:var(--mg)">소계 {{ "{:,.0f}".format(g.subtotal) }}원</strong>
+      </span>
     </div>
-    {% endif %}
+    <div class="card-body p-0">
+      <table class="table table-sm mb-0" style="font-size:13px">
+        <thead class="table-light">
+          <tr><th class="ps-3">지급일</th><th>신청서</th><th>고객사</th><th class="text-center">방식</th><th class="text-end pe-3">현금 정산액</th></tr>
+        </thead>
+        <tbody>
+          {% for r in g.rows %}
+          <tr>
+            <td class="ps-3" style="color:#888">{{ r.payment_date }}</td>
+            <td><a href="/admin/applications/{{ r.app_id }}">{{ r.title }}</a></td>
+            <td>{{ r.customer_name }}</td>
+            <td class="text-center">
+              {% if r.payout_mode == 'credit' %}<span class="badge bg-info text-dark">지원금 차감</span>
+              {% else %}<span class="badge bg-secondary">현금</span>{% endif %}
+            </td>
+            <td class="text-end pe-3 fw-semibold" style="color:var(--mg)">
+              {% if r.payout_mode == 'credit' %}{{ "{:,.0f}".format(r.remaining_cash) }}원{% else %}{{ "{:,.0f}".format(r.amount) }}원{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
   </div>
-</div>
+  {% endfor %}
+{% else %}
+<div class="card"><div class="text-center py-5 text-muted">
+  <i class="bi bi-inbox" style="font-size:40px;display:block;margin-bottom:10px;opacity:.3"></i>
+  {{ month[:4] }}년 {{ month[5:7] }}월에 지급 완료된 건이 없습니다.
+</div></div>
+{% endif %}
+
+<script>
+  function toggleGrp(master) {
+    var card = master.closest('.card');
+    card.querySelectorAll('input[name="app_ids[]"]').forEach(function (cb) { cb.checked = master.checked; });
+  }
+</script>
 {% endblock %}

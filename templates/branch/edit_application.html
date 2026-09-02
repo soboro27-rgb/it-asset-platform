@@ -53,6 +53,40 @@
     </div>
   </div>
 
+  <!-- 고객사 정보 -->
+  <div class="card mb-3">
+    <div class="card-header"><i class="bi bi-building me-2"></i>고객사 정보 <span class="text-muted" style="font-size:12px">— 구형 제품을 매각하는 최종 고객</span></div>
+    <div class="card-body">
+      <div class="row g-3">
+        <div class="col-md-4">
+          <label class="form-label fw-semibold" style="font-size:13px">고객사 상호 *</label>
+          <input type="text" name="customer_name" class="form-control" style="font-size:13px"
+                 placeholder="예) (주)한국전자" value="{{ app.customer_name }}" required/>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label fw-semibold" style="font-size:13px">사업자번호</label>
+          <input type="text" name="customer_business_no" class="form-control" style="font-size:13px"
+                 placeholder="000-00-00000" value="{{ app.customer_business_no }}"/>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label fw-semibold" style="font-size:13px">고객사 주소</label>
+          <input type="text" name="customer_address" class="form-control" style="font-size:13px"
+                 placeholder="설치/수거 주소" value="{{ app.customer_address }}"/>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label fw-semibold" style="font-size:13px">고객사 담당자</label>
+          <input type="text" name="customer_contact_name" class="form-control" style="font-size:13px"
+                 placeholder="담당자 이름" value="{{ app.customer_contact_name }}"/>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label fw-semibold" style="font-size:13px">고객사 담당자 연락처</label>
+          <input type="text" name="customer_contact_phone" class="form-control" style="font-size:13px"
+                 placeholder="예) 010-0000-0000" value="{{ app.customer_contact_phone }}"/>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- 자산 목록 -->
   <div class="card mb-3">
     <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
