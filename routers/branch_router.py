@@ -295,6 +295,28 @@ def submit_application(request: Request, app_id: int, db: Session = Depends(get_
     return RedirectResponse(f"/branch/applications/{app_id}", status_code=302)
 
 
+@router.post("/applications/{app_id}/approve-quote")
+def approve_quote(request: Request, app_id: int, db: Session = Depends(get_db)):
+    """대리점이 월드와이드메모리가 산정한 가견적을 승인 → 수거 일정 조율 단계로."""
+    user, redir = _check(request)
+    if redir:
+        return redir
+
+    app = db.query(models.Application).filter(
+        models.Application.id == app_id,
+        models.Application.user_id == user["user_id"],
+        models.Application.status == "quoted",
+    ).first()
+
+    if app:
+        app.status = "approved"
+        app.approved_at = datetime.now()
+        app.updated_at = datetime.now()
+        db.commit()
+
+    return RedirectResponse(f"/branch/applications/{app_id}", status_code=302)
+
+
 @router.post("/applications/{app_id}/confirm-schedule")
 def confirm_schedule(request: Request, app_id: int, db: Session = Depends(get_db)):
     user, redir = _check(request)

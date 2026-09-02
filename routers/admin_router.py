@@ -19,7 +19,7 @@ from stamp_data import STAMP_B64
 
 router = APIRouter()
 
-IN_PROGRESS_STATUSES = ["approved", "scheduled", "schedule_confirmed", "collected", "priced"]
+IN_PROGRESS_STATUSES = ["quoted", "approved", "scheduled", "schedule_confirmed", "collected", "priced"]
 
 
 def _check(request: Request):
@@ -142,21 +142,28 @@ def application_detail(request: Request, app_id: int, error: str = "", db: Sessi
     )
 
 
-@router.post("/applications/{app_id}/approve")
-def approve(request: Request, app_id: int, db: Session = Depends(get_db)):
+@router.post("/applications/{app_id}/estimate")
+async def set_estimate(request: Request, app_id: int, db: Session = Depends(get_db)):
+    """견적문의(submitted) 건에 가견적 단가를 입력하고 대리점 승인 대기(quoted)로 전환."""
     user, redir = _check(request)
     if redir:
         return redir
     if user["role"] not in ("coretail", "operator"):
         return RedirectResponse(f"/admin/applications/{app_id}", status_code=302)
 
+    form = await request.form()
     app = db.query(models.Application).filter(
         models.Application.id == app_id,
         models.Application.status == "submitted",
     ).first()
     if app:
-        app.status = "approved"
-        app.approved_at = datetime.now()
+        for asset in app.assets:
+            try:
+                est = float(str(form.get(f"est_{asset.id}", 0) or 0).replace(",", ""))
+            except (ValueError, TypeError):
+                est = 0.0
+            asset.estimated_unit_price = est
+        app.status = "quoted"
         app.updated_at = datetime.now()
         db.commit()
 

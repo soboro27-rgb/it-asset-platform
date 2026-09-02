@@ -22,11 +22,11 @@
 
 <!-- 진행 단계 -->
 {% set steps = [
-  ('submitted','접수'),('approved','승인'),('scheduled','일정확정'),
+  ('submitted','견적문의'),('quoted','가견적'),('approved','가견적승인'),('scheduled','일정확정'),
   ('schedule_confirmed','수거예정'),('collected','수거완료'),
-  ('priced','금액산정'),('branch_confirmed','대리점승인'),('completed','완료')
+  ('priced','최종금액'),('branch_confirmed','대리점확인'),('completed','완료')
 ] %}
-{% set status_order = ['draft','submitted','approved','scheduled','schedule_confirmed','collected','priced','branch_confirmed','completed'] %}
+{% set status_order = ['draft','submitted','quoted','approved','scheduled','schedule_confirmed','collected','priced','branch_confirmed','completed'] %}
 {% set cur_idx = status_order.index(app.status) %}
 <div class="step-bar mb-4">
   {% for s_key, s_name in steps %}
@@ -212,9 +212,60 @@
       <div class="card-header"><i class="bi bi-laptop me-2"></i>신청 자산 목록 ({{ app.assets|length }}종)</div>
       <div class="card-body p-0">
 
-        {% if app.status == 'collected' and session.get('role') == 'coretail' %}
-        <!-- 금액 산정 폼 -->
-        <form method="post" action="/admin/applications/{{ app.id }}/pricing" onsubmit="return confirm('금액 산정 내용을 저장하고 대리점에 통보하시겠습니까?')">
+        {% if app.status == 'submitted' and session.get('role') in ['coretail','operator'] %}
+        <!-- 가견적 산정 폼 -->
+        <form method="post" action="/admin/applications/{{ app.id }}/estimate" onsubmit="return confirm('가견적을 저장하고 대리점 승인을 요청하시겠습니까?')">
+          <table class="table mb-0" style="font-size:13px">
+            <thead class="table-light">
+              <tr>
+                <th class="ps-3">카테고리</th><th>모델명</th><th>수량</th><th>상태</th>
+                <th style="width:140px">가견적 단가 (원) *</th><th>소계</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in app.assets %}
+              <tr>
+                <td class="ps-3"><span class="badge bg-secondary">{{ item.category }}</span></td>
+                <td>{{ item.model_name or '-' }}
+                  <div class="text-muted" style="font-size:11px">{{ item.manufacturer or '' }}{% if item.manufacture_year %} {{ item.manufacture_year }}년{% endif %}{% if item.category in ['PC','노트북'] %}{% if item.memory_spec %} · 메모리: {{ item.memory_spec }}{% endif %}{% if item.storage_spec %} · 저장: {{ item.storage_spec }}{% endif %}{% endif %}</div>
+                </td>
+                <td><strong>{{ item.quantity }}</strong>개</td>
+                <td>{% if item.condition == '상' %}<span class="badge bg-success">상</span>{% elif item.condition == '중' %}<span class="badge bg-warning text-dark">중</span>{% else %}<span class="badge bg-danger">하</span>{% endif %}</td>
+                <td>
+                  <input type="number" name="est_{{ item.id }}" class="form-control form-control-sm est-input"
+                         value="{{ item.estimated_unit_price | int }}" min="0" step="1000"
+                         data-qty="{{ item.quantity }}" data-row="{{ item.id }}"
+                         oninput="calcEstRow(this)" style="font-size:13px"/>
+                </td>
+                <td class="fw-semibold" id="esub_{{ item.id }}" style="color:var(--mg)">
+                  {{ "{:,.0f}".format(item.estimated_unit_price * item.quantity) }}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+            <tfoot class="table-light">
+              <tr>
+                <td colspan="5" class="text-end fw-bold ps-3">가견적 합계</td>
+                <td class="fw-bold" style="color:var(--mg);font-size:15px" id="estTotalAmount">
+                  {% set et = namespace(v=0) %}{% for item in app.assets %}{% set et.v = et.v + item.estimated_unit_price * item.quantity %}{% endfor %}
+                  {{ "{:,.0f}".format(et.v) }}
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+          <div class="p-3">
+            <div class="text-muted mb-3" style="font-size:12px">
+              <i class="bi bi-info-circle me-1"></i>실물 수거·검수 전 개략 견적입니다. 대리점 승인 후 수거 일정을 조율하고, 최종 금액은 수거·검수 후 별도 확정합니다.
+            </div>
+            <button type="submit" class="btn btn-mg w-100">
+              <i class="bi bi-send-check me-2"></i>가견적 저장 및 대리점 승인 요청
+            </button>
+          </div>
+        </form>
+
+        {% elif app.status == 'collected' and session.get('role') == 'coretail' %}
+        <!-- 최종 금액 산정 폼 -->
+        <form method="post" action="/admin/applications/{{ app.id }}/pricing" onsubmit="return confirm('최종 금액을 저장하고 대리점에 통보하시겠습니까?')">
           <table class="table mb-0" style="font-size:13px">
             <thead class="table-light">
               <tr>
@@ -231,13 +282,14 @@
                     {% if item.category in ['PC', '노트북'] %}
                     {% if item.memory_spec %} · 메모리: {{ item.memory_spec }}{% endif %}{% if item.storage_spec %} · 저장: {{ item.storage_spec }}{% endif %}{% if item.data_wiped %} · <span class="badge bg-success bg-opacity-75" style="font-size:10px">{{ item.data_wiped }}</span>{% endif %}{% if item.category == '노트북' and item.has_adapter %} · <span class="badge bg-info text-dark bg-opacity-75" style="font-size:10px">아답터 {{ item.has_adapter }}</span>{% endif %}
                     {% endif %}
+                    {% if item.estimated_unit_price %} · <span style="color:var(--mg)">가견적 {{ "{:,.0f}".format(item.estimated_unit_price) }}원</span>{% endif %}
                   </div>
                 </td>
                 <td><strong>{{ item.quantity }}</strong>개</td>
                 <td>{% if item.condition == '상' %}<span class="badge bg-success">상</span>{% elif item.condition == '중' %}<span class="badge bg-warning text-dark">중</span>{% else %}<span class="badge bg-danger">하</span>{% endif %}</td>
                 <td>
                   <input type="number" name="price_{{ item.id }}" class="form-control form-control-sm price-input"
-                         value="{{ item.unit_price | int }}" min="0" step="1000"
+                         value="{{ (item.unit_price or item.estimated_unit_price) | int }}" min="0" step="1000"
                          data-qty="{{ item.quantity }}" data-row="{{ item.id }}"
                          oninput="calcRow(this)" style="font-size:13px"/>
                 </td>
@@ -442,7 +494,7 @@
     {% endif %}
 
     <!-- 방문 일정 정보 (scheduled 이후) -->
-    {% if app.schedule and app.status not in ['submitted','approved'] %}
+    {% if app.schedule and app.status not in ['submitted','quoted','approved'] %}
     <div class="card mb-3">
       <div class="card-header"><i class="bi bi-calendar-check me-2"></i>방문 수거 일정</div>
       <div class="card-body">
@@ -523,21 +575,30 @@
   <!-- 오른쪽: 액션 패널 -->
   <div class="col-lg-4">
 
-    {% if app.status == 'submitted' and session.get('role') == 'coretail' %}
-    <!-- 승인 -->
-    <div class="card border-warning mb-3">
-      <div class="card-header" style="background:#fff8e1"><i class="bi bi-check-circle me-2"></i>신청 검토 및 승인</div>
-      <div class="card-body">
-        <p style="font-size:13px" class="mb-3">신청 내용을 검토한 후 승인해 주세요.</p>
-        <form method="post" action="/admin/applications/{{ app.id }}/approve" onsubmit="return confirm('신청을 승인하시겠습니까?')">
-          <button type="submit" class="btn btn-mg w-100">
-            <i class="bi bi-check-circle me-2"></i>승인 처리
-          </button>
-        </form>
+    {% if app.status == 'submitted' and session.get('role') in ['coretail','operator'] %}
+    <div class="card border-0 mb-3" style="background:#fff8e1">
+      <div class="card-body text-center py-4">
+        <i class="bi bi-calculator" style="font-size:36px;color:#f57c00"></i>
+        <div class="fw-bold mt-2">가견적 산정</div>
+        <div class="text-muted mt-1" style="font-size:12px">좌측 자산 목록에 <strong>가견적 단가</strong>를<br/>입력하고 대리점 승인을 요청하세요.</div>
       </div>
     </div>
 
-    {% elif app.status == 'approved' and session.get('role') == 'coretail' %}
+    {% elif app.status == 'quoted' %}
+    <div class="card border-0 mb-3" style="background:#e3f2fd">
+      <div class="card-body text-center py-4">
+        <i class="bi bi-hourglass-split" style="font-size:36px;color:#1565c0"></i>
+        <div class="fw-bold mt-2">대리점 가견적 승인 대기 중</div>
+        <div class="text-muted mt-1" style="font-size:12px">대리점의 가견적 승인을<br/>기다리고 있습니다.</div>
+        {% set et = namespace(v=0) %}{% for item in app.assets %}{% set et.v = et.v + item.estimated_unit_price * item.quantity %}{% endfor %}
+        <div class="mt-3 p-2 bg-white rounded border">
+          <div style="font-size:11px;color:#888">가견적 합계</div>
+          <div style="font-size:20px;font-weight:700;color:var(--mg)">{{ "{:,.0f}".format(et.v) }}원</div>
+        </div>
+      </div>
+    </div>
+
+    {% elif app.status == 'approved' and session.get('role') in ['coretail','operator'] %}
     <!-- 방문 일정 입력 -->
     <div class="card border-primary mb-3">
       <div class="card-header bg-primary text-white"><i class="bi bi-calendar-plus me-2"></i>방문 수거 일정 입력</div>
@@ -903,6 +964,19 @@ function calcTotal() {
   const branch = total * (1 - PLATFORM_FEE_RATE / 100);
   const branchEl = document.getElementById('branchAmount');
   if (branchEl) branchEl.textContent = branch.toLocaleString('ko-KR') + '원';
+}
+
+function calcEstRow(input) {
+  const qty = parseFloat(input.dataset.qty) || 1;
+  const price = parseFloat(input.value) || 0;
+  const subEl = document.getElementById('esub_' + input.dataset.row);
+  if (subEl) subEl.textContent = (price * qty).toLocaleString('ko-KR');
+  let total = 0;
+  document.querySelectorAll('.est-input').forEach(inp => {
+    total += (parseFloat(inp.value) || 0) * (parseFloat(inp.dataset.qty) || 1);
+  });
+  const el = document.getElementById('estTotalAmount');
+  if (el) el.textContent = total.toLocaleString('ko-KR');
 }
 
 // 페이지 로드 시 초기 계산

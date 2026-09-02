@@ -57,6 +57,24 @@ UTF-8 폼 입력 정상(Python 클라이언트 확인. Git Bash curl 한글은 �
   `seed_dealers.py` 멱등, main.py 기동 시 호출. 계정표 = `CREDENTIALS.md`(gitignore).
 - 라이브 검증: 로그인 화면 대리점 30개 드롭다운, LGD01/LGD30/CORETAIL01 로그인 302 OK.
 
+## 2026-09-02 — 워크플로우 순서 수정 (가견적 단계 추가)
+
+기존: 대리점 접수 → 관리자 승인(가부만) → 일정 → 수거 → 금액입력 → 대리점 승인
+수정: **대리점 견적문의 → 관리자 가견적 입력 → 대리점 가견적 승인 → 일정 → 수거 →
+      관리자 최종금액 입력 → 대리점 확인**
+
+- `status`에 `quoted`(가견적 산정완료) 추가. 순서:
+  draft→submitted→quoted→approved→scheduled→schedule_confirmed→collected→priced→branch_confirmed→completed
+- `approved` 의미 변경: 관리자 승인 → **대리점의 가견적 승인**
+- admin_router: `approve` 라우트 삭제 → `set_estimate`(submitted→quoted, 자산별
+  `estimated_unit_price` 입력) 신설
+- branch_router: `approve_quote`(quoted→approved) 신설
+- 최종금액 폼(collected→priced)은 가견적을 참고단가로 표시, unit_price 미입력 시 가견적으로 프리필
+- config.py STATUS_LABEL/COLOR, 양 detail 템플릿 step-bar(9단계), base 사이드바·admin
+  대시보드 상태 필터 갱신
+- `IN_PROGRESS_STATUSES` 에 quoted 추가
+- 라이브 배포됨
+
 ## 2026-09-02 — 용어 정리 (복지회/주관사/운영사/매입사/지점 제거)
 
 - 전 템플릿·라우터에서 복지회·주관사·운영사·매입사 → "관리자"(월드와이드메모리),

@@ -6,19 +6,21 @@ templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
 STATUS_LABEL = {
     "draft": "작성중",
-    "submitted": "접수대기",
-    "approved": "승인완료",
+    "submitted": "견적문의 접수",
+    "quoted": "가견적 산정완료",
+    "approved": "가견적 승인",
     "scheduled": "일정확정대기",
     "schedule_confirmed": "수거예정",
     "collected": "수거완료",
-    "priced": "금액산정완료",
-    "branch_confirmed": "지점승인완료",
+    "priced": "최종금액 산정완료",
+    "branch_confirmed": "대리점 확인완료",
     "completed": "거래완료",
 }
 
 STATUS_COLOR = {
     "draft": "secondary",
     "submitted": "warning",
+    "quoted": "info",
     "approved": "info",
     "scheduled": "primary",
     "schedule_confirmed": "primary",

@@ -22,11 +22,11 @@
 
 <!-- 진행 단계 -->
 {% set steps = [
-  ('submitted','접수'),('approved','승인'),('scheduled','일정확정'),
+  ('submitted','견적문의'),('quoted','가견적'),('approved','가견적승인'),('scheduled','일정확정'),
   ('schedule_confirmed','수거예정'),('collected','수거완료'),
-  ('priced','금액산정'),('branch_confirmed','대리점승인'),('completed','완료')
+  ('priced','최종금액'),('branch_confirmed','확인'),('completed','완료')
 ] %}
-{% set status_order = ['draft','submitted','approved','scheduled','schedule_confirmed','collected','priced','branch_confirmed','completed'] %}
+{% set status_order = ['draft','submitted','quoted','approved','scheduled','schedule_confirmed','collected','priced','branch_confirmed','completed'] %}
 {% set cur_idx = status_order.index(app.status) %}
 
 <div class="step-bar mb-4">
@@ -110,10 +110,18 @@
           {% if app.status in ['priced','branch_confirmed','completed'] and app.settlement %}
           <tfoot class="table-light">
             <tr>
-              <td colspan="6" class="text-end fw-bold ps-3">수령 예정 금액</td>
+              <td colspan="6" class="text-end fw-bold ps-3">지급 예정 금액</td>
               <td colspan="2" class="fw-bold" style="color:var(--mg);font-size:15px">
                 {{ "{:,.0f}".format(app.settlement.branch_total_amount) }}원
               </td>
+            </tr>
+          </tfoot>
+          {% elif app.status in ['quoted','approved','scheduled','schedule_confirmed','collected'] %}
+          {% set et = namespace(v=0) %}{% for item in app.assets %}{% set et.v = et.v + item.estimated_unit_price * item.quantity %}{% endfor %}
+          <tfoot class="table-light">
+            <tr>
+              <td colspan="6" class="text-end fw-bold ps-3">가견적 합계 <span class="text-muted" style="font-weight:400">(검수 후 변동 가능)</span></td>
+              <td colspan="2" class="fw-bold" style="color:var(--mg);font-size:15px">{{ "{:,.0f}".format(et.v) }}원</td>
             </tr>
           </tfoot>
           {% endif %}
@@ -147,8 +155,30 @@
     <div class="card border-0" style="background:#fff8e1">
       <div class="card-body text-center py-4">
         <i class="bi bi-hourglass-split" style="font-size:36px;color:#f57c00"></i>
-        <div class="fw-bold mt-2">검토 중</div>
-        <div class="text-muted mt-1" style="font-size:12px">월드와이드메모리 담당자가<br/>접수 내용을 검토하고 있습니다.</div>
+        <div class="fw-bold mt-2">가견적 산정 중</div>
+        <div class="text-muted mt-1" style="font-size:12px">월드와이드메모리가<br/>가견적을 산정하고 있습니다.</div>
+      </div>
+    </div>
+
+    {% elif app.status == 'quoted' %}
+    {% set et = namespace(v=0) %}{% for item in app.assets %}{% set et.v = et.v + item.estimated_unit_price * item.quantity %}{% endfor %}
+    <div class="card border-warning mb-3">
+      <div class="card-header" style="background:#fff8e1"><i class="bi bi-clipboard-check me-2"></i>가견적 확인</div>
+      <div class="card-body">
+        <div class="p-2 bg-light rounded mb-3 text-center">
+          <div style="font-size:11px;color:#888">가견적 합계</div>
+          <div style="font-size:22px;font-weight:700;color:var(--mg)">{{ "{:,.0f}".format(et.v) }}원</div>
+        </div>
+        <p style="font-size:12px" class="text-muted mb-3">
+          실물 수거·검수 전 개략 견적입니다. 승인하시면 수거 일정을 조율하며,
+          <strong>최종 금액은 검수 후 확정</strong>됩니다.
+        </p>
+        <form method="post" action="/branch/applications/{{ app.id }}/approve-quote"
+              onsubmit="return confirm('가견적을 승인하시겠습니까?')">
+          <button type="submit" class="btn btn-mg w-100">
+            <i class="bi bi-check-circle me-2"></i>가견적 승인
+          </button>
+        </form>
       </div>
     </div>
 
@@ -156,8 +186,8 @@
     <div class="card border-0" style="background:#e3f2fd">
       <div class="card-body text-center py-4">
         <i class="bi bi-check-circle-fill" style="font-size:36px;color:#1565c0"></i>
-        <div class="fw-bold mt-2">승인 완료</div>
-        <div class="text-muted mt-1" style="font-size:12px">승인되었습니다.<br/>방문 수거 일정 조율 중입니다.</div>
+        <div class="fw-bold mt-2">가견적 승인 완료</div>
+        <div class="text-muted mt-1" style="font-size:12px">방문 수거 일정을<br/>조율하고 있습니다.</div>
         {% if app.approved_at %}
         <div class="mt-2" style="font-size:11px;color:#aaa">승인일: {{ app.approved_at.strftime('%Y-%m-%d') }}</div>
         {% endif %}

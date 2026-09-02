@@ -29,8 +29,8 @@ class Application(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     status = Column(String(30), default="draft")
-    # draft → submitted → approved → scheduled → schedule_confirmed
-    # → collected → priced → branch_confirmed → completed
+    # draft → submitted(견적문의) → quoted(가견적 산정) → approved(대리점 가견적 승인)
+    # → scheduled → schedule_confirmed → collected → priced(최종금액) → branch_confirmed → completed
     title = Column(String(200), default="")
     notes = Column(Text, default="")
     contact_name = Column(String(50), default="")   # 담당자 이름

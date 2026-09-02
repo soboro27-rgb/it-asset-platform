@@ -45,13 +45,14 @@
 <!-- 상태별 바로가기 -->
 <div class="row g-2 mb-4">
   {% set shortcut_statuses = [
-    ('submitted','접수대기','inbox-fill','warning'),
-    ('approved','승인완료','check-circle','info'),
+    ('submitted','견적문의','inbox-fill','warning'),
+    ('quoted','가견적 산정완료','calculator','info'),
+    ('approved','가견적 승인','check-circle','info'),
     ('scheduled','일정확정대기','calendar2-check','primary'),
     ('schedule_confirmed','수거예정','truck','primary'),
     ('collected','수거완료','box-seam','secondary'),
-    ('priced','금액산정완료','currency-dollar','warning'),
-    ('branch_confirmed','대리점확인완료','patch-check','success'),
+    ('priced','최종금액 산정완료','currency-dollar','warning'),
+    ('branch_confirmed','대리점 확인완료','patch-check','success'),
     ('completed','거래완료','flag-fill','success'),
   ] %}
   {% for s_key, s_name, icon, color in shortcut_statuses %}
