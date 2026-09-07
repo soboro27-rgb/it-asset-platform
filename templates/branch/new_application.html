@@ -385,7 +385,7 @@ let _acTimer = null;
 function onModelInput(input, idx) {
   clearTimeout(_acTimer);
   const q = input.value.trim();
-  if (q.length < 1) { hideDropdown(idx); clearBadge(idx); return; }
+  if (q.length < 1) { hideDropdown(idx); clearEstCell(idx); return; }
 
   const catSel = document.querySelector(`#assetBody tr[data-idx="${idx}"] select[name="category[]"]`)
                  || input.closest('tr')?.previousElementSibling?.querySelector('select[name="category[]"]')
