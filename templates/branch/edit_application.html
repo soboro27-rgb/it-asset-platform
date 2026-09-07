@@ -371,6 +371,28 @@ function onModelInput(input, idx) {
   }, 200);
 }
 
+// 드롭다운을 입력창 아래에 고정 배치 (부모 .table-responsive 의 overflow 클리핑 회피)
+function positionDropdown(idx) {
+  const drop = document.getElementById(`ac_drop_${idx}`);
+  const input = document.getElementById(`model_name_${idx}`);
+  if (!drop || !input || drop.style.display === 'none') return;
+  const r = input.getBoundingClientRect();
+  drop.style.position = 'fixed';
+  drop.style.top = `${r.bottom}px`;
+  drop.style.left = `${r.left}px`;
+  drop.style.width = `${r.width}px`;
+}
+window.addEventListener('scroll', () => {
+  document.querySelectorAll('[id^="ac_drop_"]').forEach(d => {
+    if (d.style.display !== 'none') positionDropdown(d.id.replace('ac_drop_', ''));
+  });
+}, true);
+window.addEventListener('resize', () => {
+  document.querySelectorAll('[id^="ac_drop_"]').forEach(d => {
+    if (d.style.display !== 'none') positionDropdown(d.id.replace('ac_drop_', ''));
+  });
+});
+
 function renderDropdown(items, idx) {
   const drop = document.getElementById(`ac_drop_${idx}`);
   if (!items || items.length === 0) { drop.style.display = 'none'; return; }
@@ -387,6 +409,7 @@ function renderDropdown(items, idx) {
     el.addEventListener('mouseout',  () => el.style.background = '');
   });
   drop.style.display = 'block';
+  positionDropdown(idx);
 }
 
 function selectModel(event, idx, item) {
