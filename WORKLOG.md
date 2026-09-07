@@ -136,3 +136,13 @@ UTF-8 폼 입력 정상(Python 클라이언트 확인. Git Bash curl 한글은 �
   `application_detail.html`(admin/branch) 상세 사양 표시 조건도 `SPEC_CATEGORIES` 기준.
 - `models.py` — `AssetItem.category` 주석 갱신.
 - DB 스키마 변경 없음. 기존 데이터의 옛 카테고리 값(모바일 등)은 그대로 표시됨.
+
+## 2026-09-07 — 모델명 가견적 자동완성 드롭다운이 안 보이던 문제
+
+**증상 (팔렌시아):** 대리점 신청서 모델명에 "애플" 입력해도 하단에 유사제품 드롭다운이 안 뜸.
+**원인:** API·JS 정상(헤드리스 Chrome 확인, DOM엔 20건 렌더). 자산 목록이 Bootstrap
+`.table-responsive`(overflow:auto) 안이라 position:absolute 드롭다운이 컨테이너 하단에서 클리핑됨.
+- `positionDropdown(idx)` 신설: 드롭다운 position:fixed + 입력창 getBoundingClientRect 기준 배치,
+  scroll/resize 재배치, 뷰포트 하단 공간 부족 시 위로 flip. new/edit_application 양쪽.
+- 덤: 미정의 `clearBadge` 호출 → `clearEstCell` 로 수정.
+- 커밋 487082a·8255f44·82ccdf6 → origin/main 배포, 하주씨앤씨 계정 재현·검증 완료.
