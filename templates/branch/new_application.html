@@ -408,10 +408,16 @@ function positionDropdown(idx) {
   const input = document.getElementById(`model_name_${idx}`);
   if (!drop || !input || drop.style.display === 'none') return;
   const r = input.getBoundingClientRect();
+  const dropH = Math.min(drop.scrollHeight || 220, 220);
+  const spaceBelow = window.innerHeight - r.bottom;
   drop.style.position = 'fixed';
-  drop.style.top = `${r.bottom}px`;
-  drop.style.left = `${r.left}px`;
   drop.style.width = `${r.width}px`;
+  drop.style.left = `${r.left}px`;
+  if (spaceBelow < dropH + 8 && r.top > spaceBelow) {
+    drop.style.top = `${Math.max(4, r.top - dropH)}px`;   // 아래 공간 부족 시 위로
+  } else {
+    drop.style.top = `${r.bottom}px`;
+  }
 }
 window.addEventListener('scroll', () => {
   document.querySelectorAll('[id^="ac_drop_"]').forEach(d => {
