@@ -227,7 +227,7 @@
               <tr>
                 <td class="ps-3"><span class="badge bg-secondary">{{ item.category }}</span></td>
                 <td>{{ item.model_name or '-' }}
-                  <div class="text-muted" style="font-size:11px">{{ item.manufacturer or '' }}{% if item.manufacture_year %} {{ item.manufacture_year }}년{% endif %}{% if item.category in ['PC','노트북'] %}{% if item.memory_spec %} · 메모리: {{ item.memory_spec }}{% endif %}{% if item.storage_spec %} · 저장: {{ item.storage_spec }}{% endif %}{% endif %}</div>
+                  <div class="text-muted" style="font-size:11px">{{ item.manufacturer or '' }}{% if item.manufacture_year %} {{ item.manufacture_year }}년{% endif %}{% if item.category in SPEC_CATEGORIES %}{% if item.memory_spec %} · 메모리: {{ item.memory_spec }}{% endif %}{% if item.storage_spec %} · 저장: {{ item.storage_spec }}{% endif %}{% endif %}</div>
                 </td>
                 <td><strong>{{ item.quantity }}</strong>개</td>
                 <td>{% if item.condition == '상' %}<span class="badge bg-success">상</span>{% elif item.condition == '중' %}<span class="badge bg-warning text-dark">중</span>{% else %}<span class="badge bg-danger">하</span>{% endif %}</td>
@@ -279,7 +279,7 @@
                 <td class="ps-3"><span class="badge bg-secondary">{{ item.category }}</span></td>
                 <td>{{ item.model_name or '-' }}
                   <div class="text-muted" style="font-size:11px">{{ item.manufacturer or '' }}{% if item.manufacture_year %} {{ item.manufacture_year }}년{% endif %}
-                    {% if item.category in ['PC', '노트북'] %}
+                    {% if item.category in SPEC_CATEGORIES %}
                     {% if item.memory_spec %} · 메모리: {{ item.memory_spec }}{% endif %}{% if item.storage_spec %} · 저장: {{ item.storage_spec }}{% endif %}{% if item.data_wiped %} · <span class="badge bg-success bg-opacity-75" style="font-size:10px">{{ item.data_wiped }}</span>{% endif %}{% if item.category == '노트북' and item.has_adapter %} · <span class="badge bg-info text-dark bg-opacity-75" style="font-size:10px">아답터 {{ item.has_adapter }}</span>{% endif %}
                     {% endif %}
                     {% if item.estimated_unit_price %} · <span style="color:var(--mg)">가견적 {{ "{:,.0f}".format(item.estimated_unit_price) }}원</span>{% endif %}
@@ -381,7 +381,7 @@
             <tr>
               <td class="ps-3"><span class="badge bg-secondary">{{ item.category }}</span></td>
               <td>{{ item.model_name or '-' }}
-                {% if item.category in ['PC', '노트북'] %}
+                {% if item.category in SPEC_CATEGORIES %}
                 <div class="text-muted" style="font-size:11px">
                   {% if item.memory_spec %}메모리: {{ item.memory_spec }}{% endif %}{% if item.storage_spec %} · 저장: {{ item.storage_spec }}{% endif %}{% if item.data_wiped %} · <span class="badge bg-success bg-opacity-75" style="font-size:10px">{{ item.data_wiped }}</span>{% endif %}{% if item.category == '노트북' and item.has_adapter %} · <span class="badge bg-info text-dark bg-opacity-75" style="font-size:10px">아답터 {{ item.has_adapter }}</span>{% endif %}
                 </div>

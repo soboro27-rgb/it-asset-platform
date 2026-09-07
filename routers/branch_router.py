@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from database import get_db
 import models
 from auth import require_branch
-from config import templates
+from config import templates, CATEGORIES
 from datetime import datetime
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
@@ -24,7 +24,7 @@ def _generate_destruction_excel(app) -> BytesIO:
     from routers.admin_router import _generate_destruction_excel as _admin_dest
     return _admin_dest(app)
 
-VALID_CATEGORIES = ["PC", "노트북", "태블릿", "모바일", "프린터", "복합기", "기타전산기기"]
+VALID_CATEGORIES = CATEGORIES
 VALID_CONDITIONS = ["상", "중", "하"]
 
 router = APIRouter()
@@ -448,7 +448,8 @@ def download_asset_template(request: Request):
     examples = [
         ["PC", "ThinkPad X1 Carbon", "Lenovo", 2020, 2, "중", "배터리 불량", "16GB DDR4", "512GB SSD", "파쇄완료", ""],
         ["노트북", "EliteBook 840 G6", "HP", 2019, 1, "하", "화면 미세 흠집", "8GB DDR4", "256GB SSD", "블랑코완료", "있음"],
-        ["프린터", "LaserJet Pro M404n", "HP", 2021, 3, "상", "", "", "", "", ""],
+        ["서버", "PowerEdge R740", "Dell", 2021, 1, "상", "", "64GB DDR4", "1.2TB SAS x4", "", ""],
+        ["모니터", "S24R350", "Samsung", 2021, 3, "상", "", "", "", "", ""],
     ]
     for row_idx, row_data in enumerate(examples, 2):
         for col_idx, value in enumerate(row_data, 1):
@@ -466,9 +467,9 @@ def download_asset_template(request: Request):
         ("수량*", "필수. 1 이상의 정수. 비우면 1로 처리."),
         ("상태", "상/중/하 중 하나. 비우면 '중' 처리."),
         ("비고", "특이사항 (예: 배터리 불량, 화면 흠집 등). 비워도 됨."),
-        ("메모리사양", "PC/노트북 전용. 예: 16GB DDR4. 비워도 됨."),
-        ("저장장치사양", "PC/노트북 전용. 예: 512GB SSD. 비워도 됨."),
-        ("데이터삭제", "PC/노트북 전용. 미진행 / 파쇄완료 / 블랑코완료 중 하나. 비워도 됨."),
+        ("메모리사양", "PC/노트북/맥북/서버 전용. 예: 16GB DDR4. 비워도 됨."),
+        ("저장장치사양", "PC/노트북/맥북/서버 전용. 예: 512GB SSD. 비워도 됨."),
+        ("데이터삭제", "PC/노트북/맥북/서버 전용. 미진행 / 파쇄완료 / 블랑코완료 중 하나. 비워도 됨."),
         ("아답터", "노트북 전용. 있음 / 없음 중 하나. 비워도 됨."),
     ]
     for i, (field, desc) in enumerate(notes, 3):

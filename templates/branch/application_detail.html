@@ -87,7 +87,7 @@
               </td>
               <td>
                 {{ item.model_name or '-' }}
-                {% if item.category in ['PC', '노트북'] %}
+                {% if item.category in SPEC_CATEGORIES %}
                 <div style="font-size:11px;color:#888;margin-top:2px">
                   {% if item.memory_spec %}메모리: {{ item.memory_spec }}{% endif %}
                   {% if item.storage_spec %} &nbsp;저장: {{ item.storage_spec }}{% endif %}

@@ -30,8 +30,16 @@ STATUS_COLOR = {
     "completed": "success",
 }
 
-CATEGORIES = ["PC", "노트북", "태블릿", "모바일", "프린터", "복합기", "기타전산기기"]
+# 가견적 대량 등록 등 전 화면 공통 자산 카테고리 (단일 출처)
+CATEGORIES = [
+    "BOARD", "CPU", "HDD", "PC", "RAM", "SSD",
+    "그래픽카드", "기타전산기기", "노트북", "맥북", "모니터", "서버", "태블릿",
+]
+
+# 메모리/저장장치 등 상세 사양 입력이 필요한 카테고리
+SPEC_CATEGORIES = ["PC", "노트북", "맥북", "서버"]
 
 templates.env.globals["STATUS_LABEL"] = STATUS_LABEL
 templates.env.globals["STATUS_COLOR"] = STATUS_COLOR
 templates.env.globals["CATEGORIES"] = CATEGORIES
+templates.env.globals["SPEC_CATEGORIES"] = SPEC_CATEGORIES

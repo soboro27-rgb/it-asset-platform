@@ -56,13 +56,9 @@
           <div class="mb-2">
             <label class="form-label" style="font-size:12px">카테고리 *</label>
             <select name="category" class="form-select form-select-sm">
-              <option value="PC">PC</option>
-              <option value="노트북">노트북</option>
-              <option value="태블릿">태블릿</option>
-              <option value="모바일">모바일</option>
-              <option value="프린터">프린터</option>
-              <option value="복합기">복합기</option>
-              <option value="기타전산기기">기타전산기기</option>
+              {% for c in CATEGORIES %}
+              <option value="{{ c }}">{{ c }}</option>
+              {% endfor %}
             </select>
           </div>
           <div class="mb-2">

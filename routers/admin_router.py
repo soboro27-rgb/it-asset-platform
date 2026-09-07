@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from database import get_db
 import models
 from auth import require_admin
-from config import templates
+from config import templates, CATEGORIES
 from datetime import datetime
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
@@ -308,10 +308,16 @@ def _set_border(ws, row, col_start, col_end, border):
 _ASSET_TO_TRANSFER = {
     "PC": "컴퓨터(본체)",
     "노트북": "노트북",
+    "맥북": "노트북",
     "태블릿": "태블릿pc",
-    "모바일": "태블릿pc",
-    "프린터": "프린터",
-    "복합기": "기타",
+    "모니터": "모니터",
+    "서버": "워크스테이션",
+    "그래픽카드": "기타",
+    "CPU": "기타",
+    "RAM": "기타",
+    "SSD": "기타",
+    "HDD": "기타",
+    "BOARD": "기타",
     "기타전산기기": "기타",
 }
 _TRANSFER_ROWS = [
@@ -320,11 +326,11 @@ _TRANSFER_ROWS = [
 ]
 _DISPOSAL_ROWS = ["컴퓨터 본체", "모니터", "노트북", "TV", "기타장비류"]
 _DISPOSAL_CAT_MAP = {
-    "컴퓨터 본체": ["PC"],
-    "모니터": [],
-    "노트북": ["노트북"],
+    "컴퓨터 본체": ["PC", "서버"],
+    "모니터": ["모니터"],
+    "노트북": ["노트북", "맥북"],
     "TV": [],
-    "기타장비류": ["태블릿", "모바일", "프린터", "복합기", "기타전산기기"],
+    "기타장비류": ["태블릿", "그래픽카드", "CPU", "RAM", "SSD", "HDD", "BOARD", "기타전산기기"],
 }
 
 
@@ -1440,7 +1446,8 @@ def price_ref_template(request: Request):
     examples = [
         ["PC",   "DB400S3A", "Intel Core i5-9400(2.9GHz) / 삼성 데스크탑", "8GB DDR4 2666MHz", "Windows 10 Pro 64bit", 80000],
         ["노트북", "NT930QDA", "Intel Core i5-1135G7 / 삼성 갤럭시북",      "8GB LPDDR4X",      "Windows 11 Home",      150000],
-        ["프린터", "",         "HP LaserJet Pro M404n",                      "",                 "",                     20000],
+        ["서버", "R740",      "Dell PowerEdge R740 / Xeon Silver 4210",     "64GB DDR4",        "",                     600000],
+        ["SSD",  "",          "삼성 870 EVO 1TB SATA",                      "",                 "",                     35000],
     ]
     for r, row in enumerate(examples, 2):
         for c, val in enumerate(row, 1):
@@ -1451,7 +1458,7 @@ def price_ref_template(request: Request):
     ws2["A1"] = "가견적 기준가 작성 요령"
     ws2["A1"].font = Font(bold=True, size=13)
     notes = [
-        ("카테고리*",  "필수. PC / 노트북 / 태블릿 / 모바일 / 프린터 / 복합기 / 기타전산기기 중 하나"),
+        ("카테고리*",  "필수. 다음 중 하나: " + " / ".join(CATEGORIES)),
         ("제품코드",   "제조사 모델코드 (예: DB400S3A). 비워도 됨"),
         ("모델설명*",  "필수. CPU 또는 모델 이름 등 자유 기재"),
         ("메모리사양", "예: 8GB DDR4 2666MHz. 비워도 됨"),
@@ -1494,7 +1501,7 @@ async def price_ref_bulk(request: Request, db: Session = Depends(get_db)):
         return RedirectResponse("/admin/price-refs?bulk_error=badfile", status_code=302)
 
     ws = wb.active
-    VALID_CATS = ["PC", "노트북", "태블릿", "모바일", "프린터", "복합기", "기타전산기기"]
+    VALID_CATS = CATEGORIES
     added = 0
     errors = []
 

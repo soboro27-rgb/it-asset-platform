@@ -95,3 +95,44 @@ UTF-8 폼 입력 정상(Python 클라이언트 확인. Git Bash curl 한글은 �
 - `init_data.py` — migrate()가 OPERATOR01 만들면 init() 시드가 스킵되는 버그.
   라이브(Render)는 CORETAIL01 존재. 로컬 재현 시 수동 시드 필요.
 - `welfare` role 자체는 스키마/권한 체크에 남아있음(미사용). 완전 제거는 마이그레이션 필요.
+
+## 2026-09-05 — /process 페이지에 "회계 효과" 섹션 추가
+
+**요청 (팔렌시아):** 기존 "회계감사 규정 완벽 대응" 섹션에, 내용연수 종료 자산
+(장부가 1,000원) 재판매 시 잡이익 계상 문제와 다수 업체 참여로 인한 데이터
+유출·담합 리스크를 짚고, 이를 월드와이드메모리 단일 매입 구조 + 신품 구매지원금
+전환으로 해결한다는 논리를 보강해달라는 요청.
+
+- `templates/process.html`에 `#financial` 섹션 신설 (감사 섹션과 CTA 사이).
+  기존 `.compare-grid`/`.compare-card` 컴포넌트 재사용 (bad=기존 리스크,
+  good=플랫폼 구조), 하단에 `.audit` 위 70%박스와 같은 스타일의 요약 콜아웃 추가.
+- 상단 nav에 `#financial` → "회계 효과" 링크 추가.
+- 새 CSS 클래스 없이 기존 디자인시스템만으로 구현 (fade-in 애니메이션도
+  `.compare-card` 셀렉터에 이미 포함되어 자동 적용됨).
+- 배포 완료 (`origin/main` `cc14f3c`). 배포 전 클론이 9/2 리브랜딩 이후로
+  동기화가 안 돼있던 걸 발견 — `git reset --hard origin/main` 후 재작업.
+
+**추가 요청**: "잡이익 리스크를... 맨 위로 올려줘" → `#financial` 섹션을
+히어로 바로 다음(문제/해결 섹션보다 앞)으로 이동, nav 순서도 동일하게 조정.
+배포 완료 (`origin/main` `261c60a`).
+
+## 2026-09-07 — 자산 카테고리 재분류 (가견적 대량 등록)
+
+**요청 (팔렌시아):** 가견적 대량 등록 시 카테고리를 스크린샷대로 분류해 반영.
+새 목록: BOARD / CPU / HDD / PC / RAM / SSD / 그래픽카드 / 기타전산기기 / 노트북 /
+맥북 / 모니터 / 서버 / 태블릿 (기존 모바일·프린터·복합기 제거, 서버부품·맥북·모니터·서버 추가).
+
+- `config.py` — `CATEGORIES`를 단일 출처로 새 13종 목록으로 교체.
+  `SPEC_CATEGORIES = [PC, 노트북, 맥북, 서버]` 신설 (메모리/저장장치 상세행 표시 대상).
+  둘 다 Jinja 전역으로 등록.
+- `routers/branch_router.py` — `VALID_CATEGORIES = CATEGORIES` 로 통일.
+  자산 엑셀 양식 예시행(프린터→서버·모니터), 작성요령 문구 갱신.
+- `routers/admin_router.py` — 가견적 기준가 bulk `VALID_CATS = CATEGORIES`.
+  기준가 엑셀 양식 예시/문구 갱신. 인수인계서(`_ASSET_TO_TRANSFER`)·
+  폐기목록(`_DISPOSAL_CAT_MAP`) 매핑에 신규 카테고리 반영 (서버→워크스테이션/컴퓨터본체,
+  맥북→노트북, 모니터→모니터, 부품류→기타).
+- 템플릿 — `price_refs.html` 카테고리 select, `new/edit_application.html` 안내 뱃지를
+  `{% for c in CATEGORIES %}` 루프로 전환. `onCategoryChange`는 `SPEC_CATEGORIES.includes()` 로.
+  `application_detail.html`(admin/branch) 상세 사양 표시 조건도 `SPEC_CATEGORIES` 기준.
+- `models.py` — `AssetItem.category` 주석 갱신.
+- DB 스키마 변경 없음. 기존 데이터의 옛 카테고리 값(모바일 등)은 그대로 표시됨.

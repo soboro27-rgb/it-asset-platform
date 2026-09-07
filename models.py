@@ -58,7 +58,7 @@ class AssetItem(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     application_id = Column(Integer, ForeignKey("applications.id"), nullable=False)
-    category = Column(String(20), nullable=False)  # PC/노트북/태블릿/모바일/프린터/복합기/기타전산기기
+    category = Column(String(20), nullable=False)  # config.CATEGORIES 참조 (BOARD/CPU/HDD/PC/RAM/SSD/그래픽카드/기타전산기기/노트북/맥북/모니터/서버/태블릿)
     model_name = Column(String(100), default="")
     manufacturer = Column(String(50), default="")
     manufacture_year = Column(Integer, nullable=True)
