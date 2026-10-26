@@ -438,7 +438,7 @@ def download_asset_template(request: Request):
     header_fill = PatternFill(start_color="005B30", end_color="005B30", fill_type="solid")
     header_font = Font(color="FFFFFF", bold=True, size=11)
 
-    headers = ["카테고리*", "모델명", "제조사", "제조연도", "수량*", "상태", "비고",
+    headers = ["카테고리*", "모델명", "제조사", "매입연도", "수량*", "상태", "비고",
                "메모리사양", "저장장치사양", "데이터삭제", "아답터"]
     col_widths = [16, 22, 16, 12, 8, 8, 24, 16, 16, 14, 10]
 
@@ -475,7 +475,7 @@ def download_asset_template(request: Request):
         ("카테고리*", f"필수. 다음 중 하나: {', '.join(valid_cats)}"),
         ("모델명", "장비 모델명 (예: ThinkPad X1 Carbon)"),
         ("제조사", "제조사명 (예: Lenovo, HP, Samsung). 비워도 됨."),
-        ("제조연도", "4자리 연도 (예: 2020). 비워도 됨."),
+        ("매입연도", "4자리 연도 (예: 2020). 비워도 됨."),
         ("수량*", "필수. 1 이상의 정수. 비우면 1로 처리."),
         ("상태", "상/중/하 중 하나. 비우면 '중' 처리."),
         ("비고", "특이사항 (예: 배터리 불량, 화면 흠집 등). 비워도 됨."),
@@ -547,10 +547,10 @@ async def parse_asset_excel(request: Request, file: UploadFile = File(...)):
             try:
                 manufacture_year = int(manufacture_year_raw)
                 if not (1990 <= manufacture_year <= 2030):
-                    errors.append(f"{row_num}행: 제조연도 {manufacture_year}이 유효하지 않습니다. (1990~2030)")
+                    errors.append(f"{row_num}행: 매입연도 {manufacture_year}이 유효하지 않습니다. (1990~2030)")
                     manufacture_year = None
             except (ValueError, TypeError):
-                errors.append(f"{row_num}행: 제조연도가 올바른 숫자가 아닙니다.")
+                errors.append(f"{row_num}행: 매입연도가 올바른 숫자가 아닙니다.")
 
         quantity = 1
         if quantity_raw is not None and str(quantity_raw).strip():
