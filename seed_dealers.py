@@ -42,6 +42,16 @@ DEALERS = [
     ('LGD28', '대리점 28', 'wmad9hyv'),
     ('LGD29', '대리점 29', 'wm9e9ygy'),
     ('LGD30', '하주씨앤씨', 'wm6xjwm5'),
+    ('gowid001', 'gowid001', 'wmc5oah5'),
+    ('gowid002', 'gowid002', 'wmouo0no'),
+    ('gowid003', 'gowid003', 'wmcmmcr5'),
+    ('gowid004', 'gowid004', 'wmucv5pi'),
+    ('gowid005', 'gowid005', 'wmdv6dam'),
+    ('gowid006', 'gowid006', 'wmpy5hp8'),
+    ('gowid007', 'gowid007', 'wmnbqmes'),
+    ('gowid008', 'gowid008', 'wmwcd74z'),
+    ('gowid009', 'gowid009', 'wmhe1aw9'),
+    ('gowid010', 'gowid010', 'wmtczk3g'),
 ]
 
 
