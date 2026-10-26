@@ -232,6 +232,11 @@
     <hr/>
     <div class="section-label">접수 현황</div>
     <a href="/branch/dashboard" class="nav-link"><i class="bi bi-list-ul"></i>전체 접수 목록</a>
+    <hr/>
+    <div class="section-label">정산</div>
+    <a href="/branch/settlement" class="nav-link {% if '/branch/settlement' in request.url.path %}active{% endif %}">
+      <i class="bi bi-receipt"></i>정산 내역
+    </a>
 
     {% else %}
     <div class="section-label">관리 메뉴</div>

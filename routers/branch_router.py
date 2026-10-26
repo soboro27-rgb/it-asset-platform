@@ -47,6 +47,58 @@ def _check(request: Request):
     return user, None
 
 
+def _payable(st) -> float:
+    """대리점이 실제 받을 현금 정산액 (구매지원금 차감 방식이면 잔여 현금)."""
+    return (st.remaining_cash if st.payout_mode == "credit" else st.branch_total_amount) or 0.0
+
+
+def _settlement_summary(applications) -> dict:
+    waiting_confirm = waiting_pay = paid = 0.0
+    n_confirm = n_pay = n_paid = n_pricing = 0
+    for a in applications:
+        if a.status == "collected":
+            n_pricing += 1
+        st = a.settlement
+        if not st:
+            continue
+        if a.status == "priced":
+            waiting_confirm += _payable(st)
+            n_confirm += 1
+        elif a.status == "branch_confirmed":
+            waiting_pay += _payable(st)
+            n_pay += 1
+        elif a.status == "completed":
+            paid += _payable(st)
+            n_paid += 1
+    return {
+        "n_pricing": n_pricing,
+        "waiting_confirm": waiting_confirm, "n_confirm": n_confirm,
+        "waiting_pay": waiting_pay, "n_pay": n_pay,
+        "paid": paid, "n_paid": n_paid,
+    }
+
+
+@router.get("/settlement", response_class=HTMLResponse)
+def settlement_page(request: Request, db: Session = Depends(get_db)):
+    user, redir = _check(request)
+    if redir:
+        return redir
+    applications = (
+        db.query(models.Application)
+        .filter(
+            models.Application.user_id == user["user_id"],
+            models.Application.status.in_(["collected", "priced", "branch_confirmed", "completed"]),
+        )
+        .order_by(models.Application.updated_at.desc())
+        .all()
+    )
+    return templates.TemplateResponse(
+        "branch/settlement.html",
+        {"request": request, "session": request.session, "applications": applications,
+         "summary": _settlement_summary(applications), "payable": _payable},
+    )
+
+
 @router.get("/dashboard", response_class=HTMLResponse)
 def dashboard(request: Request, db: Session = Depends(get_db)):
     user, redir = _check(request)
@@ -61,7 +113,8 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
     )
     return templates.TemplateResponse(
         "branch/dashboard.html",
-        {"request": request, "session": request.session, "applications": applications},
+        {"request": request, "session": request.session, "applications": applications,
+         "summary": _settlement_summary(applications), "payable": _payable},
     )
 
 
@@ -173,7 +226,7 @@ def application_detail(request: Request, app_id: int, db: Session = Depends(get_
 
     return templates.TemplateResponse(
         "branch/application_detail.html",
-        {"request": request, "session": request.session, "app": app},
+        {"request": request, "session": request.session, "app": app, "payable": _payable},
     )
 
 

@@ -328,6 +328,38 @@
     </div>
     {% endif %}
 
+    <!-- 정산 진행 안내 (수거완료 이후) -->
+    {% if app.status in ['collected','priced','branch_confirmed','completed'] %}
+    {% set stl = [('collected','매입 단가 산정'),('priced','수령 금액 확인'),('branch_confirmed','지급 대기'),('completed','지급 완료')] %}
+    {% set stl_idx = ['collected','priced','branch_confirmed','completed'].index(app.status) %}
+    <div class="card mb-3">
+      <div class="card-header" style="font-size:13px"><i class="bi bi-receipt me-2"></i>정산 진행</div>
+      <ul class="list-group list-group-flush" style="font-size:13px">
+        {% for k, n in stl %}
+        <li class="list-group-item d-flex align-items-center {% if loop.index0 > stl_idx %}text-muted{% endif %}">
+          {% if loop.index0 < stl_idx or app.status == 'completed' %}<i class="bi bi-check-circle-fill text-success me-2"></i>
+          {% elif loop.index0 == stl_idx %}<i class="bi bi-arrow-right-circle-fill me-2" style="color:var(--mg)"></i>
+          {% else %}<i class="bi bi-circle me-2"></i>{% endif %}
+          <span {% if loop.index0 == stl_idx and app.status != 'completed' %}class="fw-bold"{% endif %}>{{ n }}</span>
+        </li>
+        {% endfor %}
+        {% if app.settlement and app.status != 'collected' %}
+        <li class="list-group-item" style="background:#fafafa">
+          <div class="d-flex justify-content-between"><span class="text-muted">정산 방식</span>
+            <strong>{% if app.settlement.payout_mode == 'credit' %}신품 구매지원금 차감{% else %}현금 정산{% endif %}</strong></div>
+          {% if app.settlement.payout_mode == 'credit' %}
+          <div class="d-flex justify-content-between"><span class="text-muted">매입 합계</span><span>{{ "{:,.0f}".format(app.settlement.branch_total_amount) }}원</span></div>
+          <div class="d-flex justify-content-between"><span class="text-muted">구매지원금 차감</span><span>- {{ "{:,.0f}".format(app.settlement.credit_applied) }}원</span></div>
+          {% endif %}
+          <div class="d-flex justify-content-between"><span class="text-muted">현금 지급액</span>
+            <strong style="color:var(--mg)">{{ "{:,.0f}".format(payable(app.settlement)) }}원</strong></div>
+          {% if app.settlement.payment_date %}<div class="d-flex justify-content-between"><span class="text-muted">지급일</span><span>{{ app.settlement.payment_date }}</span></div>{% endif %}
+        </li>
+        {% endif %}
+      </ul>
+    </div>
+    {% endif %}
+
     <!-- 데이터 파기 확인서 다운로드 (collected 이후 공통) -->
     {% if app.data_wipe_record and app.status in ['collected','priced','branch_confirmed','completed'] %}
     <div class="card">

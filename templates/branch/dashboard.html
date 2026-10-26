@@ -50,6 +50,37 @@
   </div>
 </div>
 
+<!-- 정산 현황 -->
+<div class="card mb-4">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span><i class="bi bi-receipt me-2"></i>정산 현황</span>
+    <a href="/branch/settlement" class="btn btn-sm btn-outline-secondary">정산 내역 보기</a>
+  </div>
+  <div class="card-body">
+    <div class="row g-3 text-center">
+      <div class="col-6 col-md-3">
+        <div class="text-muted" style="font-size:12px">금액 산정 중</div>
+        <div style="font-size:22px;font-weight:700;color:#1565c0">{{ summary.n_pricing }}건</div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="text-muted" style="font-size:12px">금액 확인 필요</div>
+        <div style="font-size:22px;font-weight:700;color:#f57c00">{{ summary.n_confirm }}건</div>
+        <div style="font-size:11px;color:#888">{{ "{:,.0f}".format(summary.waiting_confirm) }}원</div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="text-muted" style="font-size:12px">지급 대기</div>
+        <div style="font-size:22px;font-weight:700;color:var(--mg)">{{ "{:,.0f}".format(summary.waiting_pay) }}원</div>
+        <div style="font-size:11px;color:#888">{{ summary.n_pay }}건</div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="text-muted" style="font-size:12px">지급 완료</div>
+        <div style="font-size:22px;font-weight:700;color:#2e7d32">{{ "{:,.0f}".format(summary.paid) }}원</div>
+        <div style="font-size:11px;color:#888">{{ summary.n_paid }}건</div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- 신청 목록 -->
 <div class="card">
   <div class="card-header d-flex justify-content-between align-items-center">
@@ -65,6 +96,7 @@
           <th>제목</th>
           <th>자산 수</th>
           <th>상태</th>
+          <th>정산</th>
           <th>신청일</th>
           <th>최종 업데이트</th>
           <th></th>
@@ -94,6 +126,13 @@
             {% elif app.status == 'priced' %}
             <div class="mt-1"><span class="badge bg-danger" style="font-size:10px">금액 승인 필요</span></div>
             {% endif %}
+          </td>
+          <td style="font-size:12px">
+            {% if app.settlement and app.status in ['priced','branch_confirmed','completed'] %}
+            <strong>{{ "{:,.0f}".format(payable(app.settlement)) }}원</strong>
+            <div style="color:#888;font-size:11px">{% if app.status == 'completed' %}지급완료{% elif app.status == 'branch_confirmed' %}지급 대기{% else %}확인 필요{% endif %}</div>
+            {% elif app.status == 'collected' %}<span class="text-muted">금액 산정 중</span>
+            {% else %}<span class="text-muted">-</span>{% endif %}
           </td>
           <td style="font-size:12px">{{ app.submitted_at.strftime('%Y-%m-%d') if app.submitted_at else '-' }}</td>
           <td style="font-size:12px;color:#aaa">{{ app.updated_at.strftime('%Y-%m-%d') if app.updated_at else '-' }}</td>
