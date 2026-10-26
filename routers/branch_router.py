@@ -30,6 +30,16 @@ VALID_CONDITIONS = ["상", "중", "하"]
 router = APIRouter()
 
 
+# 노트북만 매입하는 고객사 계정(gowid***)은 카테고리를 노트북으로 제한
+LAPTOP_ONLY_PREFIX = "gowid"
+
+
+def _categories_for(user) -> list:
+    if user and str(user.get("branch_code") or "").lower().startswith(LAPTOP_ONLY_PREFIX):
+        return ["노트북"]
+    return CATEGORIES
+
+
 def _check(request: Request):
     user = require_branch(request)
     if not user:
@@ -62,7 +72,7 @@ def new_application_page(request: Request):
         return redir
     return templates.TemplateResponse(
         "branch/new_application.html",
-        {"request": request, "session": request.session},
+        {"request": request, "session": request.session, "CATEGORIES": _categories_for(user)},
     )
 
 
@@ -184,7 +194,7 @@ def edit_application_page(request: Request, app_id: int, db: Session = Depends(g
 
     return templates.TemplateResponse(
         "branch/edit_application.html",
-        {"request": request, "session": request.session, "app": app},
+        {"request": request, "session": request.session, "app": app, "CATEGORIES": _categories_for(user)},
     )
 
 
@@ -420,6 +430,7 @@ def download_asset_template(request: Request):
     if redir:
         return redir
 
+    valid_cats = _categories_for(user)
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "자산목록"
@@ -451,6 +462,7 @@ def download_asset_template(request: Request):
         ["서버", "PowerEdge R740", "Dell", 2021, 1, "상", "", "64GB DDR4", "1.2TB SAS x4", "", ""],
         ["모니터", "S24R350", "Samsung", 2021, 3, "상", "", "", "", "", ""],
     ]
+    examples = [e for e in examples if e[0] in valid_cats]
     for row_idx, row_data in enumerate(examples, 2):
         for col_idx, value in enumerate(row_data, 1):
             cell = ws.cell(row=row_idx, column=col_idx, value=value)
@@ -460,7 +472,7 @@ def download_asset_template(request: Request):
     ws2["A1"] = "자산목록 작성 요령"
     ws2["A1"].font = Font(bold=True, size=13)
     notes = [
-        ("카테고리*", f"필수. 다음 중 하나: {', '.join(VALID_CATEGORIES)}"),
+        ("카테고리*", f"필수. 다음 중 하나: {', '.join(valid_cats)}"),
         ("모델명", "장비 모델명 (예: ThinkPad X1 Carbon)"),
         ("제조사", "제조사명 (예: Lenovo, HP, Samsung). 비워도 됨."),
         ("제조연도", "4자리 연도 (예: 2020). 비워도 됨."),
@@ -496,6 +508,7 @@ async def parse_asset_excel(request: Request, file: UploadFile = File(...)):
     if redir:
         return JSONResponse({"error": "로그인이 필요합니다."}, status_code=401)
 
+    valid_cats = _categories_for(user)
     contents = await file.read()
     try:
         wb = openpyxl.load_workbook(BytesIO(contents))
@@ -525,8 +538,8 @@ async def parse_asset_excel(request: Request, file: UploadFile = File(...)):
         if not category:
             errors.append(f"{row_num}행: 카테고리가 비어있습니다.")
             continue
-        if category not in VALID_CATEGORIES:
-            errors.append(f"{row_num}행: 카테고리 '{category}'가 올바르지 않습니다. ({', '.join(VALID_CATEGORIES)} 중 하나여야 합니다)")
+        if category not in valid_cats:
+            errors.append(f"{row_num}행: 카테고리 '{category}'가 올바르지 않습니다. ({', '.join(valid_cats)} 중 하나여야 합니다)")
             continue
 
         manufacture_year = None
